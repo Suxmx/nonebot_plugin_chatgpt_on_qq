@@ -3,17 +3,15 @@ import os
 import tiktoken
 import json
 from datetime import date
-from .custom_errors import OverMaxTokenLengthError, NoResponseError
+from .custom_errors import OverMaxTokenLengthError, NoResponseError,NoApiKeyError
 from nonebot.log import logger
 
 ENCODER = tiktoken.get_encoding("gpt2")
 MAX_TOKEN = 4000
-MAX_INPUT = 1000
+MAX_INPUT = 2000
 MODEL = "gpt-3.5-turbo"
 
 
-def get_max_tokens(prompt: str):
-    return MAX_TOKEN-len(ENCODER.encode(prompt))
 
 
 class PromptManager:
@@ -50,7 +48,7 @@ class PromptManager:
         role = completion["choices"][0]["message"]["role"]
         content = completion["choices"][0]["message"]["content"]
         self.history.append({"role": role, "content": content})
-        logger.debug(self.history)
+        #logger.debug(self.history)
     def dumpJsonStr(self):
         self.count=self.count+1
         jsonName=f"history{self.count}.json"
@@ -66,7 +64,10 @@ class PromptManager:
 
 class ChatGPTBot:
     def __init__(self, api_key: str, basic_prompt) -> None:
-        openai.api_key = api_key
+        if api_key is not "NoKey":
+            openai.api_key = api_key
+        else:
+            raise NoApiKeyError("未设置ApiKey")
         self.prompt_manager = PromptManager(basic_prompt=basic_prompt)
         self.talk_count=0
 
@@ -76,9 +77,14 @@ class ChatGPTBot:
         temperature: float = 0.5,
     ) -> dict:
 
-        completion = await self._get_completion(user_input, temperature)
-        self._process_completion(completion=completion)
-        return completion["choices"][0]["message"]["content"]
+        try:
+            completion = await self._get_completion(user_input, temperature)
+            await self._process_completion(completion=completion)
+            return completion["choices"][0]["message"]["content"]
+        except:
+            self.prompt_manager.history.pop()
+            raise ConnectionError
+        
 
     async def _get_completion(
             self,
@@ -91,12 +97,12 @@ class ChatGPTBot:
             model=MODEL,
             messages=self.prompt_manager.construct_prompt(user_input),
             temperature=temperature,
-            max_tokens=1000,  # get_max_tokens(prompt),
+            max_tokens=1000, 
             stop=["\n\n\n"],
             stream=stream
         )
 
-    def _process_completion(
+    async def _process_completion(
         self,
         completion: dict
     ):
@@ -108,15 +114,15 @@ class ChatGPTBot:
             raise NoResponseError("未返回任何文本!")
 
         self.prompt_manager.add_to_history(completion)
-        self.talk_count+=1
-        name=str(f"history{self.talk_count}.json")
-        with open(name,"w",encoding="GB2312") as f:
-            try:
-                json.dump(self.prompt_manager.history,f,ensure_ascii=False)
-            except UnicodeEncodeError:
-                json.dump(self.prompt_manager.history,f,ensure_ascii=True)
-            except:
-                logger.error("保存json失败!")
+        # self.talk_count+=1
+        # name=str(f"history{self.talk_count}.json")
+        # with open(name,"w",encoding="GB2312") as f:
+        #     try:
+        #         json.dump(self.prompt_manager.history,f,ensure_ascii=False)
+        #     except UnicodeEncodeError:
+        #         json.dump(self.prompt_manager.history,f,ensure_ascii=True)
+        #     except:
+        #         logger.error("保存json失败!")
         # print("实际使用tokens:"+str(completion["usage"]["prompt_tokens"]))
     def dumpJsonStr(self):
         return self.prompt_manager.dumpJsonStr()
