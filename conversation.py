@@ -46,7 +46,7 @@ TEMPLATE: dict[str:list[dict[str:str]]] = {
 # template["1"]=BASIC_PROMPT
 # template["2"]=CAT_GIRL_PROMPT
 START_TIME = time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime())
-SAVE_PATH: Path = Path("E:/KawaiiBotHistory").joinpath(START_TIME)
+SAVE_PATH: Path = plugin_config.history_save_path.joinpath(START_TIME)
 conversationUID: int = 0
 
 
@@ -74,7 +74,7 @@ class Conversation:
 
     @classmethod
     def CreateWithStr(cls, customPrompt: str, ownerId: int):
-        customPrompt = [{"role": "user", "content": customPrompt}]
+        customPrompt = [{"role": "user", "content": customPrompt},{"role":"assistant","content":"好"}]
         return cls(customPrompt, ownerId)
 
     @classmethod

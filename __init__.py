@@ -40,9 +40,12 @@ async def _(event:Event):
         userId=event.get_user_id()
         groupPanel=groupPanels.get(groupId)
         if groupPanel:
-            userConver:Conversation=groupPanel.userInConversation.get(userId)
-            if userConver:
+            userConver:Conversation=groupPanel.userInConversation.get(userId)  
+    else :
+        userConver:Conversation=privateConversations.get(userId)
+    if userConver:
                 await Dump.finish(userConver.dumpJson())
+        
 
 @Chat.handle()
 async def _(bot: Bot, event: Event):
@@ -66,8 +69,9 @@ async def _(bot: Bot, event: Event):
         try:
             answer = await userConversation.ask(userInput)
             await userConversation.GroupAutoSave(groupId)
-        except:
+        except Exception as e:
             answer="获取gpt回答失败,访问请求速度过快或是网络波动orz\n若反复出现,可尝试使用/chat delete 序号 命令来删除该对话并重新创建"
+            logger.error(e)
         await Chat.finish(answer,at_sender=True)
     if isinstance(event,PrivateMessageEvent):
         userId = event.get_user_id()
@@ -80,8 +84,9 @@ async def _(bot: Bot, event: Event):
                 answer = await userConversation.ask(userInput)
                 await Chat.send(answer)
                 await userConversation.PrivateAutoSave()
-            except:
+            except Exception as e:
                 answer="test获取gpt回答失败,访问请求速度过快或是网络波动orz\n若反复出现,可尝试使用/chat delete 序号 命令来删除该对话并重新创建"
+                logger.error(e)
                 await Chat.finish(answer,at_sender=True)
 
 @Join.handle()
@@ -171,9 +176,6 @@ async def _(bot: Bot, event: Event):
 async def _(bot: Bot, event: Event):
     msg = event.get_plaintext()
     customPrompt: str = re.sub(r"^/chat\s+create\s*", '', msg)  # 获取用户自定义prompt
-    if not groupPanels.get(event.group_id):  # 没有时创建新的groupPanel
-        groupPanels[event.group_id] = GroupPanel()
-
     if customPrompt:
         userID = event.get_user_id()
         try:
@@ -182,6 +184,8 @@ async def _(bot: Bot, event: Event):
         except NoApiKeyError:
             await CreateConversationWithPrompt.finish("请机器人管理员在设置中添加APIKEY！")
         if isinstance(event, GroupMessageEvent):  # 当在群聊中时
+            if not groupPanels.get(event.group_id):  # 没有时创建新的groupPanel
+                groupPanels[event.group_id] = GroupPanel()
             groupPanels[event.group_id].conversations.append(newConversation)
             groupPanels[event.group_id].userInConversation[userID] = newConversation
             await CreateConversationWithPrompt.finish(f"创建成功!",at_sender=True)
