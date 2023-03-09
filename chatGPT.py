@@ -50,7 +50,7 @@ class PromptManager:
         role = completion["choices"][0]["message"]["role"]
         content = completion["choices"][0]["message"]["content"]
         self.history.append({"role": role, "content": content})
-        logger.info(str(self.history))
+        #logger.info(str(self.history))
         #logger.debug(self.history)
     def dumpJsonStr(self):
         self.count=self.count+1
