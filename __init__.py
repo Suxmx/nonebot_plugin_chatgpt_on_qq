@@ -67,10 +67,10 @@ async def _(bot: Bot, event: Event):
         else:  # 获取用户当前加入的对话
             userConversation: Conversation = groupPanel.userInConversation.get(
                 userId)
-        await Chat.send("正在生成回答中...",at_sender=True)
+        #await Chat.send("正在生成回答中...",at_sender=True)
         try:
             loop=asyncio.get_event_loop()
-            await loop.run_in_executor(None,userConversation.ask,userInput)
+            answer = await loop.run_in_executor(None,userConversation.ask,userInput)
             #answer = await userConversation.ask(userInput)
             await userConversation.GroupAutoSave(groupId)
         except Exception as e:
@@ -83,7 +83,7 @@ async def _(bot: Bot, event: Event):
             await Chat.finish("尚未创建过对话!请用/chat create命令来创建对话!")
         else :
             userConversation:Conversation=privateConversations.get(userId)
-            await Chat.send("正在生成回答中...",at_sender=True)
+            #await Chat.send("正在生成回答中...",at_sender=True)
             try:
                 loop=asyncio.get_event_loop()
                 answer= await loop.run_in_executor(None,userConversation.ask,userInput)
