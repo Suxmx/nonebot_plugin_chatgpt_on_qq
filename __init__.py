@@ -37,16 +37,16 @@ privateConversations: dict[int, Conversation] = {}
 ##
 @Dump.handle()
 async def _(event:Event):
+    userId=event.get_user_id()
     if isinstance(event,GroupMessageEvent):
         groupId=event.group_id
-        userId=event.get_user_id()
         groupPanel=groupPanels.get(groupId)
         if groupPanel:
             userConver:Conversation=groupPanel.userInConversation.get(userId)  
     else :
         userConver:Conversation=privateConversations.get(userId)
     if userConver:
-                await Dump.finish(userConver.dumpJson())
+        await Dump.finish(userConver.dumpJson())
         
 
 @Chat.handle()
