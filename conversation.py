@@ -91,8 +91,8 @@ class Conversation:
         else:
             return None
 
-    async def ask(self, userInput: str) -> str:
-        answer = await self.bot.ask(userInput)
+    def ask(self, userInput: str) -> str:
+        answer = self.bot.ask(userInput)
         return answer
 
     def dumpJson(self):

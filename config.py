@@ -5,4 +5,4 @@ from pydantic import Extra, BaseModel
 
 class Config(BaseModel, extra=Extra.ignore):
     api_key:str="NoKey"
-    history_save_path:Path=Path(".data/ChatHistory").absolute()
+    history_save_path:Path=Path("data/ChatHistory").absolute()

@@ -2,8 +2,10 @@ import json
 import os
 import random
 import re
+import asyncio
 from datetime import datetime
 from pathlib import Path
+from aiohttp import ClientSession
 
 from nonebot import get_driver
 from nonebot.adapters.onebot.v11 import (Bot, Message,
@@ -29,7 +31,7 @@ CreateConversationWithJson = on_regex(r"^/chat\s+json$")
 groupPanels: dict[int:GroupPanel] = {}
 privateConversations: dict[int, Conversation] = {}
 
-
+##openai.aiosession.set(ClientSession())
 ##
 
 ##
@@ -67,11 +69,13 @@ async def _(bot: Bot, event: Event):
                 userId)
         await Chat.send("正在生成回答中...",at_sender=True)
         try:
-            answer = await userConversation.ask(userInput)
+            loop=asyncio.get_event_loop()
+            await loop.run_in_executor(None,userConversation.ask,userInput)
+            #answer = await userConversation.ask(userInput)
             await userConversation.GroupAutoSave(groupId)
         except Exception as e:
             answer="获取gpt回答失败,访问请求速度过快或是网络波动orz\n若反复出现,可尝试使用/chat delete 序号 命令来删除该对话并重新创建"
-            logger.error(e)
+            logger.error(str(e))
         await Chat.finish(answer,at_sender=True)
     if isinstance(event,PrivateMessageEvent):
         userId = event.get_user_id()
@@ -81,12 +85,13 @@ async def _(bot: Bot, event: Event):
             userConversation:Conversation=privateConversations.get(userId)
             await Chat.send("正在生成回答中...",at_sender=True)
             try:
-                answer = await userConversation.ask(userInput)
+                loop=asyncio.get_event_loop()
+                answer= await loop.run_in_executor(None,userConversation.ask,userInput)
                 await Chat.send(answer)
                 await userConversation.PrivateAutoSave()
             except Exception as e:
                 answer="test获取gpt回答失败,访问请求速度过快或是网络波动orz\n若反复出现,可尝试使用/chat delete 序号 命令来删除该对话并重新创建"
-                logger.error(e)
+                logger.error(str(e))
                 await Chat.finish(answer,at_sender=True)
 
 @Join.handle()
@@ -226,7 +231,7 @@ async def Create(event: Event, id: str = ArgPlainText("template")):
     except NoApiKeyError:
         await CreateConversationWithTemplate.finish("请机器人管理员在设置中添加APIKEY！")
     except Exception as e:
-        logger.error(e)
+        logger.error(str(e))
     if int(id) == 1:
         if newConversation is not None:
             await CreateConversationWithTemplate.send("创建普通模板成功!",at_sender=True)

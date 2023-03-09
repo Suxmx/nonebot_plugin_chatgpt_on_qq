@@ -5,6 +5,8 @@ import json
 from datetime import date
 from .custom_errors import OverMaxTokenLengthError, NoResponseError,NoApiKeyError
 from nonebot.log import logger
+#import nonebot_plugin_tuan_chatgpt
+
 
 ENCODER = tiktoken.get_encoding("gpt2")
 MAX_TOKEN = 4000
@@ -71,35 +73,32 @@ class ChatGPTBot:
         self.prompt_manager = PromptManager(basic_prompt=basic_prompt)
         self.talk_count=0
 
-    async def ask(
+    def ask(
         self,
         user_input: str,
         temperature: float = 0.5,
     ) -> dict:
 
         try:
-            completion = await self._get_completion(user_input, temperature)
-            await self._process_completion(completion=completion)
+            completion = self._get_completion(user_input, temperature)
+            self._process_completion(completion=completion)
             return completion["choices"][0]["message"]["content"]
         except:
             self.prompt_manager.history.pop()
             raise ConnectionError
         
 
-    async def _get_completion(
+    def _get_completion(
             self,
             user_input: str,
-            temperature: float = 0.5,
-            stream: bool = False
+            temperature: float = 0.5
     ):
 
         return openai.ChatCompletion.create(
             model=MODEL,
             messages=self.prompt_manager.construct_prompt(user_input),
             temperature=temperature,
-            max_tokens=1000, 
-            stop=["\n\n\n"],
-            stream=stream
+            max_tokens=1000
         )
 
     async def _process_completion(
