@@ -3,10 +3,14 @@
 ## 安装  
 推荐使用nb plugin install nonebot_plugin_chatgpt_on_qq 一键安装
 ## 使用前须知    
-使用前请先在env中添加你的api_key  
+1.在env中添加你的api_key(必选)
+2.添加代理(国内必选)
+3.设置历史对话保存路径(可选,默认保存在./data/ChatHistory)
 格式如下:  
 ```
 api_key="填入你的api_key"
+openai_proxy="x.x.x.x:xxxxx"
+history_save_path="E:/Kawaii"(填入你的路径)
 ```  
 ## 功能  
 支持群聊与私聊  
