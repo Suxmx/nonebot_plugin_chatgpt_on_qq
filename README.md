@@ -1,5 +1,20 @@
+<div align="center">
+  <a href="https://v2.nonebot.dev/store"><img src="https://raw.githubusercontent.com/A-kirami/nonebot-plugin-template/resources/nbp_logo.png" width="180" height="180" alt="NoneBotPluginLogo"></a>
+  <br>
+  <p><img src="https://raw.githubusercontent.com/A-kirami/nonebot-plugin-template/resources/NoneBotPlugin.svg" width="240" alt="NoneBotPluginText"></p>
+</div>
+
+<div align="center">
+
 # 多功能ChatGPT插件
-基于chatGPT-3.5-turboAPI的nonebot插件  
+✨基于chatGPT-3.5-turboAPI的nonebot插件✨  
+<a href="https://pypi.python.org/pypi/nonebot_plugin_tuan_chatgpt">
+    <img src="https://img.shields.io/pypi/v/nonebot_plugin_tuan_chatgpt.svg" alt="pypi">
+</a>
+<img src="https://img.shields.io/badge/python-3.8+-blue.svg" alt="python">
+
+</div>
+
 ## 安装  
 推荐使用nb plugin install nonebot_plugin_chatgpt_on_qq 一键安装
 ## 使用前须知    
