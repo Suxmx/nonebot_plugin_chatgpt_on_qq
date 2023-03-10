@@ -2,6 +2,7 @@ import json
 import copy
 import time
 import os
+import openai
 
 from datetime import date
 from pathlib import Path
@@ -14,9 +15,17 @@ from nonebot.log import logger
 from .config import Config
 
 plugin_config = Config.parse_obj(get_driver().config.dict())
+# 设置代理
+proxy = plugin_config.openai_proxy
+if proxy==None:
+    logger.error("请设置代理!")
+else :
+    openai.proxy = {'http': f"http://{proxy}", 'https': f'http://{proxy}'}
+# 设置保存路径    
+START_TIME = time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime())
+SAVE_PATH: Path = plugin_config.history_save_path.joinpath(START_TIME)
 API_KEY = plugin_config.api_key
-logger.debug(API_KEY)
-
+# 设置基础模板
 BASIC_PROMPT = [{"role": "user", "content": "You are ChatGPT, a large language model trained by OpenAI. Respond conversationally. Do not answer as the user. Current date: " + str(date.today())},
                 {"role": "assistant", "content": "Hello! How can I help you today?"}
                 ]
@@ -43,12 +52,7 @@ TEMPLATE: dict[str:list[dict[str:str]]] = {
     "2": CAT_GIRL_PROMPT,
     "3": NO_LA_PROMPT
 }
-# template["1"]=BASIC_PROMPT
-# template["2"]=CAT_GIRL_PROMPT
-START_TIME = time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime())
-SAVE_PATH: Path = plugin_config.history_save_path.joinpath(START_TIME)
 conversationUID: int = 0
-
 
 class GroupPanel:
     def __init__(self) -> None:
@@ -74,7 +78,8 @@ class Conversation:
 
     @classmethod
     def CreateWithStr(cls, customPrompt: str, ownerId: int):
-        customPrompt = [{"role": "user", "content": customPrompt},{"role":"assistant","content":"好"}]
+        customPrompt = [{"role": "user", "content": customPrompt}, {
+            "role": "assistant", "content": "好"}]
         return cls(customPrompt, ownerId)
 
     @classmethod
@@ -104,7 +109,6 @@ class Conversation:
             "%Y-%m-%d-%H-%M-%S", time.localtime())+".json"
         savePath: Path = SAVE_PATH.joinpath("GroupConversations").joinpath(
             str(groupID)).joinpath(str(self.owner.id)).joinpath(str(self.uid))
-        logger.debug("groupSaving"+str(savePath))
         if (not savePath.exists()):
             os.makedirs(savePath)
         savePath = savePath.joinpath(fileName)
@@ -117,12 +121,10 @@ class Conversation:
             "PrivateConversations").joinpath(str(self.owner.id))
         if not savePath.exists():
             os.makedirs(savePath)
-        savePath=savePath.joinpath(fileName)
+        savePath = savePath.joinpath(fileName)
         await self.AutoSave(savePath)
-        logger.success(str(savePath)+"保存成功!")
 
     async def AutoSave(self, path: Path):
-        logger.debug(path)
         with open(path, "w", encoding="GB2312") as f:
             try:
                 json.dump(self.bot.prompt_manager.history,
