@@ -42,5 +42,4 @@ api_key="填入你的api_key"
   ![image](https://user-images.githubusercontent.com/33772816/223603499-52a2893f-14a7-4d58-9b6d-e8b3b3760d3f.png)
 ### 导入json并创建对话  
   ![image](https://user-images.githubusercontent.com/33772816/223603594-126b4b7a-4184-4129-bd72-fce62a90da8e.png)
-## 待完成  
-目前openai提供的异步接口还有bug，所以目前问询功能是同步的，可能会卡住机器人(好处是刚好限制了问询速率防止访问api失败)，可能过两天会手写一个异步或是等openai修复(  
+
