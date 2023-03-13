@@ -21,11 +21,15 @@
 1.在env中添加你的api_key(必选)  
 2.添加代理(国内必选)  
 3.设置历史对话保存路径(可选,默认保存在./data/ChatHistory)  
+4.设置保存的最大历史聊天记录长度  
+5.CF相关(?  
 格式如下:  
 ```
 api_key="填入你的api_key"
 openai_proxy="x.x.x.x:xxxxx"
 history_save_path="E:/Kawaii"(填入你的路径)
+history_max: int = 10 (填入大于2的数字)
+openai_api_base:str="" (对CF的支持)
 ```  
 ## 功能  
 支持群聊与私聊  
