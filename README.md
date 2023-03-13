@@ -15,8 +15,10 @@
 
 </div>
 
-- [ ] cf worker支持https://zhuanlan.zhihu.com/p/613370610
-- [ ] arm支持(去掉openai/tiktoken)https://github.com/openai/tiktoken/issues/23
+## TODO: 
+- [ ] cf worker支持-->https://zhuanlan.zhihu.com/p/613370610
+- [x] arm支持(~去掉openai/tiktoken~)https://github.com/openai/tiktoken/issues/23, 0.3.1 release along with aarch64 wheels.
+- [ ] 优化触发指令，@直接触发
 
 ## 安装  
 推荐使用nb plugin install nonebot_plugin_chatgpt_on_qq 一键安装
