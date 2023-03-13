@@ -36,7 +36,6 @@ class PromptManager:
         #if (len(self.history)-self.basic_len > self.history_max+1):
         while len(self.history)-self.basic_len > self.history_max+1:
             self.history.pop(self.basic_len)
-            logger.info(f"{len(self.history)-self.basic_len}  {self.history_max}")
         return self.history
 
     def add_to_history(self, completion):
