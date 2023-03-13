@@ -17,13 +17,19 @@ from .config import Config
 plugin_config = Config.parse_obj(get_driver().config.dict())
 # 设置代理
 proxy = plugin_config.openai_proxy
-if proxy==None:
+api_base = plugin_config.openai_api_base
+
+if proxy == None:
     logger.error("请设置代理!")
-else :
+else:
     openai.proxy = {'http': f"http://{proxy}", 'https': f'http://{proxy}'}
-# 设置保存路径    
+if api_base != None:
+    openai.api_base = api_base
+
+# 设置保存路径
 START_TIME = time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime())
 SAVE_PATH: Path = plugin_config.history_save_path.joinpath(START_TIME)
+# 设置API
 API_KEY = plugin_config.api_key
 # 设置基础模板
 BASIC_PROMPT = [{"role": "user", "content": "You are ChatGPT, a large language model trained by OpenAI. Respond conversationally. Do not answer as the user. Current date: " + str(date.today())},
@@ -52,7 +58,11 @@ TEMPLATE: dict[str:list[dict[str:str]]] = {
     "2": CAT_GIRL_PROMPT,
     "3": NO_LA_PROMPT
 }
+# 设置历史记录上限
+HISTORY_MAX: int = plugin_config.history_max if plugin_config.history_max > 2 else 2
+
 conversationUID: int = 0
+
 
 class GroupPanel:
     def __init__(self) -> None:
@@ -69,7 +79,7 @@ class Conversation:
 
     def __init__(self, prompt: list[dict[str:str]], ownerId: int) -> None:
         logger.debug(f"初始化prompt:{prompt}")
-        self.bot = ChatGPTBot(API_KEY, prompt)
+        self.bot = ChatGPTBot(API_KEY, prompt, HISTORY_MAX)
         self.owner = User(ownerId)
         self.participants: List[User] = []
         global conversationUID
