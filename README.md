@@ -22,8 +22,10 @@
 - [ ] 根据回答长短进行合并消息发送
 - [ ] 余额查询
 - [ ] 开启/关闭上下文
+- [ ] prompt
 - [ ] 指定人进行cd限制，，，等
 - [ ] token显示？
+
 
 ## 安装  
 推荐使用nb plugin install nonebot_plugin_chatgpt_on_qq 一键安装
