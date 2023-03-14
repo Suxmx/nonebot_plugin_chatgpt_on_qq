@@ -22,7 +22,7 @@
 2.添加代理(国内必选)  
 3.设置历史对话保存路径(可选,默认保存在./data/ChatHistory)  
 4.设置保存的最大历史聊天记录长度  
-5.cf workers相关(?  
+5.cf workers相关(?  (可选)
 格式如下:  
 ```
 api_key="填入你的api_key"
