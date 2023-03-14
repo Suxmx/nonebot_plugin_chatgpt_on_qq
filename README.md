@@ -28,8 +28,8 @@
 api_key="填入你的api_key"
 openai_proxy="x.x.x.x:xxxxx"
 history_save_path="E:/Kawaii"(填入你的路径)
-history_max: int = 10 (填入大于2的数字)
-openai_api_base:str="" (cf workers)
+history_max = 10 (填入大于2的数字)
+openai_api_base = "" (cf workers)
 ```  
 ## 功能  
 支持群聊与私聊  
