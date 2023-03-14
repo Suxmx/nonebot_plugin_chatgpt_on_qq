@@ -8,7 +8,7 @@ from datetime import date
 from pathlib import Path
 
 from .chatGPT import ChatGPTBot
-from typing import List
+from typing import List, Dict
 from nonebot import get_driver
 from nonebot.log import logger
 
@@ -53,7 +53,7 @@ NO_LA_PROMPT = [{"role": "user", "content": "现在你将模仿一名名叫“�
                  + "\n现在的时间是:"
                  + str(date.today())},
                 {"role": "assistant", "content": "噢~我的小宝贝~"}]
-TEMPLATE: dict[str:list[dict[str:str]]] = {
+TEMPLATE: Dict[str, List[Dict[str, str]]] = {
     "1": BASIC_PROMPT,
     "2": CAT_GIRL_PROMPT,
     "3": NO_LA_PROMPT
@@ -67,7 +67,7 @@ conversationUID: int = 0
 class GroupPanel:
     def __init__(self) -> None:
         self.conversations: List[Conversation] = []
-        self.userInConversation: dict[int:Conversation] = {}
+        self.userInConversation: Dict[int, Conversation] = {}
 
     def CreateConversation(self):
         self.conversations.append(Conversation())
@@ -77,7 +77,7 @@ class Conversation:
 
     isAsking = False
 
-    def __init__(self, prompt: list[dict[str:str]], ownerId: int) -> None:
+    def __init__(self, prompt: List[Dict[str, str]], ownerId: int) -> None:
         logger.debug(f"初始化prompt:{prompt}")
         self.bot = ChatGPTBot(API_KEY, prompt, HISTORY_MAX)
         self.owner = User(ownerId)
