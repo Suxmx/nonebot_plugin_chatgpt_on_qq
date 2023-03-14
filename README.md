@@ -16,7 +16,7 @@
 </div>
 
 ## TODO: 
-- [ ] 修复管理员，批量删除会话
+- [ ] 修复管理员，批量删除会话，拉黑用户
 - [ ] cf worker支持-->https://zhuanlan.zhihu.com/p/613370610
 - [x] arm支持(~去掉openai/tiktoken~)https://github.com/openai/tiktoken/issues/23, 0.3.1 release along with aarch64 wheels.
 - [ ] 优化触发指令，@直接触发
