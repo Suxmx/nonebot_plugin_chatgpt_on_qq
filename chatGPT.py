@@ -1,47 +1,41 @@
 import openai
-import os
-import tiktoken
+# import tiktoken
 import json
-from datetime import date
-from .custom_errors import OverMaxTokenLengthError, NoResponseError,NoApiKeyError
 from nonebot.log import logger
-#import nonebot_plugin_tuan_chatgpt
+from nonebot import get_driver
 
+from .config import Config
+from .custom_errors import OverMaxTokenLengthError, NoResponseError,NoApiKeyError
 
-ENCODER = tiktoken.get_encoding("gpt2")
+plugin_config = Config.parse_obj(get_driver().config.dict())
+
+# ENCODER = tiktoken.get_encoding("gpt2")
 MAX_TOKEN = 4000
-MAX_INPUT = 2000
 MODEL = "gpt-3.5-turbo"
 
 
 class PromptManager:
-    def __init__(self,  basic_prompt, max_input: int = MAX_INPUT) -> None:
+    def __init__(self,  basic_prompt, history_max: int) -> None:
         self.history: list[dict[str:str]] = basic_prompt
-        self.max_input = max_input
+        self.history_max = history_max
         self.basic_len=len(basic_prompt)
         self.count=0
 
-    def check_token_length(self, dicts) -> int:
-        msgs: str = ""
-        for dict in dicts:
-            msgs += (dict["content"])+(dict["role"])+":::\n\n\n" #人工补正
-        # print("预估长度："+str(len(ENCODER.encode(msgs))))
-        return len(ENCODER.encode(msgs))
+    # def check_token_length(self, dicts) -> int:
+    #     msgs: str = ""
+    #     for dict in dicts:
+    #         msgs += (dict["content"])+(dict["role"])+":::\n\n\n" #人工补正
+    #     # print("预估长度："+str(len(ENCODER.encode(msgs))))
+    #     return len(ENCODER.encode(msgs))
 
     def construct_prompt(
             self,
             new_prompt: str,
     ) -> list[dict[str:str]]:
         self.history.append({"role": "user", "content": new_prompt})
-        if (self.check_token_length(dicts=self.history) > self.max_input):
-            if len(self.history) == self.basic_len+1:
-                raise OverMaxTokenLengthError("用户输入token长度超过最大值")
-            elif len(self.history) > self.basic_len+1:
-                self.history.pop(self.basic_len)
-                self.history.pop(self.basic_len)
-                self.history.pop()
-                
-            return self.construct_prompt(new_prompt)
+        #if (len(self.history)-self.basic_len > self.history_max+1):
+        while len(self.history)-self.basic_len > self.history_max+1:
+            self.history.pop(self.basic_len)
         return self.history
 
     def add_to_history(self, completion):
@@ -50,7 +44,6 @@ class PromptManager:
         self.history.append({"role": role, "content": content})
     def dumpJsonStr(self):
         self.count=self.count+1
-        jsonName=f"history{self.count}.json"
         try:
             jsonStr=json.dumps(self.history,ensure_ascii=False)
         except UnicodeEncodeError:
@@ -61,12 +54,12 @@ class PromptManager:
 
 
 class ChatGPTBot:
-    def __init__(self, api_key: str, basic_prompt) -> None:
+    def __init__(self, api_key: str, basic_prompt,history_max:int) -> None:
         if api_key is not "NoKey":
             openai.api_key = api_key
         else:
             raise NoApiKeyError("未设置ApiKey")
-        self.prompt_manager = PromptManager(basic_prompt=basic_prompt)
+        self.prompt_manager = PromptManager(basic_prompt=basic_prompt,history_max=history_max)
         self.talk_count=0
 
     async def ask(

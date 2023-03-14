@@ -28,16 +28,20 @@
 1.在env中添加你的api_key(必选)  
 2.添加代理(国内必选)  
 3.设置历史对话保存路径(可选,默认保存在./data/ChatHistory)  
+4.设置保存的最大历史聊天记录长度  
+5.cf workers相关(?  
 格式如下:  
 ```
 api_key="填入你的api_key"
 openai_proxy="x.x.x.x:xxxxx"
 history_save_path="E:/Kawaii"(填入你的路径)
+history_max: int = 10 (填入大于2的数字)
+openai_api_base:str="" (cf workers)
 ```  
 ## 功能  
 支持群聊与私聊  
 群聊中可同时创建多个会话,对话间相互独立  
-对话时会保存一部分上下文信息(2000个token左右,超过会自动从最早的历史记录开始逐步清除)  
+对话时会保存一部分上下文信息(默认保存10条,可在.env中设置)    
 能导出导入历史记录一键回到曾经的会话  
 有普通chatGPT(id:1)模板基础的猫娘模板(id:2),以及隐藏的诺拉模板(id:3)作为基础prompt来构建对话  
 可自动在本地保存所有对话的聊天记录  
