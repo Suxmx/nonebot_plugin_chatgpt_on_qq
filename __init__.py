@@ -1,6 +1,8 @@
 import json
 import re
 
+from typing import Dict, List
+
 from nonebot import get_driver
 from nonebot.adapters.onebot.v11 import (Bot,
                                          Event,
@@ -17,12 +19,13 @@ ShowList = on_regex(r"^/chat\s+list\s*$")  # 展示群聊天列表
 Join = on_regex(r"^/chat\s+join\s+\d+")  # 加入对话
 Delete = on_regex(r"^/chat\s+delete\s+\d+")  # 删除对话
 Dump = on_regex(r"^/chat\s+dump$")  # 导出json
-CreateConversationWithPrompt = on_regex(r"^/chat\s+create\s+.+$")# 利用自定义prompt创建对话
-CreateConversationWithTemplate = on_regex(r"^/chat\s+create$")# 利用模板创建对话
-CreateConversationWithJson = on_regex(r"^/chat\s+json$")# 利用json创建对话
+CreateConversationWithPrompt = on_regex(
+    r"^/chat\s+create\s+.+$")  # 利用自定义prompt创建对话
+CreateConversationWithTemplate = on_regex(r"^/chat\s+create$")  # 利用模板创建对话
+CreateConversationWithJson = on_regex(r"^/chat\s+json$")  # 利用json创建对话
 
-groupPanels: dict[int:GroupPanel] = {}
-privateConversations: dict[int, Conversation] = {}
+groupPanels: Dict[int:GroupPanel] = {}
+privateConversations: Dict[int, Conversation] = {}
 
 
 @Dump.handle()
@@ -76,9 +79,9 @@ async def _(bot: Bot, event: Event):
                 await Chat.send(answer)
                 await userConversation.PrivateAutoSave()
             except Exception as e:
-                answer="test获取gpt回答失败,访问请求速度过快或是网络波动orz\n若反复出现,可尝试使用/chat delete 序号 命令来删除该对话并重新创建"
+                answer = "test获取gpt回答失败,访问请求速度过快或是网络波动orz\n若反复出现,可尝试使用/chat delete 序号 命令来删除该对话并重新创建"
                 logger.error(str(e))
-                await Chat.finish(answer,at_sender=True)
+                await Chat.finish(answer, at_sender=True)
 
 
 @Join.handle()
@@ -112,7 +115,7 @@ async def _(bot: Bot, event: Event):
         + "/chat join 序号(指/chat list中的序号) :参与list中的某个对话\n"
         + "/chat create (prompt) :自定义prompt来创建一个新的对话\n"
         + "/chat delete 序号(指/chat list中的序号) :删除list中的某个对话\n"
-        + "/chat dump :导出当前对话的历史记录json\n"
+        + "/chat dump :导出当前对话的历史记录json"
     )
     await CallMenu.finish(menu, at_sender=True)
 
@@ -131,7 +134,7 @@ async def _(event: Event):
         userId = event.get_user_id()
         if groupPanel.conversations[id-1].owner.id == userId:
             conver = groupPanel.conversations[id-1]
-            jointUser: list[int] = []
+            jointUser: List[int] = []
             for user, conversation in groupPanel.userInConversation.items():
                 if conver == conversation:
                     jointUser.append(user)
