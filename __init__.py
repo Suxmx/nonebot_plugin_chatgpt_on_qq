@@ -24,7 +24,7 @@ CreateConversationWithPrompt = on_regex(
 CreateConversationWithTemplate = on_regex(r"^/chat\s+create$")  # 利用模板创建对话
 CreateConversationWithJson = on_regex(r"^/chat\s+json$")  # 利用json创建对话
 
-groupPanels: Dict[int:GroupPanel] = {}
+groupPanels: Dict[int,GroupPanel] = {}
 privateConversations: Dict[int, Conversation] = {}
 
 
