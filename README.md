@@ -20,10 +20,9 @@
 - [ ] cf worker支持-->https://zhuanlan.zhihu.com/p/613370610
 - [x] arm支持(~去掉openai/tiktoken~)https://github.com/openai/tiktoken/issues/23, 0.3.1 release along with aarch64 wheels.
 - [ ] 优化触发指令，@直接触发
-- [ ] 根据回答长短进行合并消息发送
+- [x] ~根据回答长短进行合并消息发送~ 容易被tx风控
 - [ ] 余额查询
 - [ ] 开启/关闭上下文
-- [ ] prompt
 - [ ] 指定人进行cd限制，，，等
 - [ ] token显示？
 
