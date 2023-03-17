@@ -9,4 +9,4 @@ class Config(BaseModel, extra=Extra.ignore):
     openai_proxy: str = None
     openai_api_base: str = None
     history_max: int = 10
-    openai_api_base:str=None
+    admin: list[str] = None

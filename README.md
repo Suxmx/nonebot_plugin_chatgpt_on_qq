@@ -15,6 +15,7 @@
 
 </div>
 
+
 ## 安装  
 推荐使用nb plugin install nonebot_plugin_chatgpt_on_qq 一键安装
 ## 使用前须知    
@@ -23,14 +24,18 @@
 3.设置历史对话保存路径(可选,默认保存在./data/ChatHistory)  
 4.设置保存的最大历史聊天记录长度  
 5.cf workers相关(?  (可选)
+6.管理员（可删除他人创建的对话，可设置多个）
+
 格式如下:  
+
 ```
 api_key="填入你的api_key"
 openai_proxy="x.x.x.x:xxxxx"
 history_save_path="E:/Kawaii"(填入你的路径)
 history_max = 10 (填入大于2的数字)
 openai_api_base = "" (cf workers)
-```  
+admin=["qqNumber"]
+```
 ## 功能  
 支持群聊与私聊  
 群聊中可同时创建多个会话,对话间相互独立  
@@ -50,6 +55,7 @@ openai_api_base = "" (cf workers)
 /chat json 利用历史对话json来回到一个对话,输入该命令后会提示你在下一个消息中输入json  
 /chat dump 导出当前对话的json文件  
 /talk (对话内容) 在当前对话中进行对话(同样不需要括号，后面直接接你要说的话就行)  
+
 ## 使用效果预览  
 ### 利用模板创建新的对话  
   ![image](https://user-images.githubusercontent.com/33772816/223602899-77ce2c3b-5d0f-40c2-8183-65e8447d9bec.png)

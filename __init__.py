@@ -132,7 +132,7 @@ async def _(event: Event):
         if id < 1 or id > len(groupPanel.conversations):
             await Join.finish("序号超出!", at_sender=True)
         userId = event.get_user_id()
-        if groupPanel.conversations[id-1].owner.id == userId:
+        if groupPanel.conversations[id-1].owner.id == userId or userId in groupPanel.conversations[id-1].admin:
             conver = groupPanel.conversations[id-1]
             jointUser: List[int] = []
             for user, conversation in groupPanel.userInConversation.items():
