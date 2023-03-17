@@ -29,6 +29,8 @@ if api_base != None:
 # 设置保存路径
 START_TIME = time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime())
 SAVE_PATH: Path = plugin_config.history_save_path.joinpath(START_TIME)
+# 设置管理员
+ADMIN = plugin_config.admin
 # 设置API
 API_KEY = plugin_config.api_key
 # 设置基础模板
@@ -80,6 +82,7 @@ class Conversation:
     def __init__(self, prompt: List[Dict[str, str]], ownerId: int) -> None:
         logger.debug(f"初始化prompt:{prompt}")
         self.bot = ChatGPTBot(API_KEY, prompt, HISTORY_MAX)
+        self.admin = ADMIN
         self.owner = User(ownerId)
         self.participants: List[User] = []
         global conversationUID
