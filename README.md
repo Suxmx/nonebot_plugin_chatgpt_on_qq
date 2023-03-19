@@ -31,9 +31,9 @@
 ```
 api_key="填入你的api_key"
 openai_proxy="x.x.x.x:xxxxx"
-history_save_path="E:/Kawaii"(填入你的路径)
-history_max = 10 (填入大于2的数字)
-openai_api_base = "" (cf workers)
+history_save_path="E:/Kawaii"#(填入你的路径)
+history_max = 10 #(填入大于2的数字)
+openai_api_base = "" #(cf workers)
 admin=["qqNumber"]
 ```
 ## 功能  
