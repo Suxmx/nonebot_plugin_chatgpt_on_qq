@@ -21,6 +21,8 @@ api_base = plugin_config.openai_api_base
 
 if proxy == None:
     logger.error("请设置代理!")
+elif proxy=="NoError":
+    pass
 else:
     openai.proxy = {'http': f"http://{proxy}", 'https': f'http://{proxy}'}
 if api_base != None:
