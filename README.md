@@ -20,7 +20,7 @@
 推荐使用nb plugin install nonebot_plugin_chatgpt_on_qq 一键安装
 ## 使用前须知    
 1.在env中添加你的api_key(必选)  
-2.添加代理(国内必选)  
+2.添加代理(国内必选) #填写NoError可以去除插件打开时的警告    
 3.设置历史对话保存路径(可选,默认保存在./data/ChatHistory)  
 4.设置保存的最大历史聊天记录长度  
 5.cf workers相关(?  (可选)
