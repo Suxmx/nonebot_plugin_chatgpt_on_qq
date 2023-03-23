@@ -19,13 +19,13 @@ plugin_config = Config.parse_obj(get_driver().config.dict())
 proxy = plugin_config.openai_proxy
 api_base = plugin_config.openai_api_base
 
-if proxy == None:
-    logger.error("请设置代理!")
+if not proxy:
+    logger.warning("插件未设置代理。")
 elif proxy=="NoError":
     pass
 else:
     openai.proxy = {'http': f"http://{proxy}", 'https': f'http://{proxy}'}
-if api_base != None:
+if api_base:
     openai.api_base = api_base
 
 # 设置保存路径

@@ -13,7 +13,16 @@ plugin_config = Config.parse_obj(get_driver().config.dict())
 
 # ENCODER = tiktoken.get_encoding("gpt2")
 MAX_TOKEN = 4000
-MODEL = "gpt-3.5-turbo"
+
+if plugin_config.model_name:
+    MODEL = plugin_config.model_name
+else:
+    MODEL = "gpt-3.5-turbo"
+
+if plugin_config.temperature:
+    TEMPERATURE = plugin_config.temperature
+else:
+    TEMPERATURE = 0.5
 
 
 class PromptManager:
@@ -56,7 +65,7 @@ class PromptManager:
 
 class ChatGPTBot:
     def __init__(self, api_key: str, basic_prompt, history_max: int) -> None:
-        if api_key is not "NoKey":
+        if api_key:
             openai.api_key = api_key
         else:
             raise NoApiKeyError("未设置ApiKey")
@@ -67,7 +76,7 @@ class ChatGPTBot:
     async def ask(
         self,
         user_input: str,
-        temperature: float = 0.5,
+        temperature: float = TEMPERATURE
     ) -> Dict:
 
         try:
@@ -81,7 +90,7 @@ class ChatGPTBot:
     async def _get_completion(
             self,
             user_input: str,
-            temperature: float = 0.5
+            temperature: float = TEMPERATURE
     ):
 
         return await openai.ChatCompletion.acreate(
