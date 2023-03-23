@@ -4,7 +4,7 @@ from pydantic import Extra, BaseModel
 
 
 class Config(BaseModel, extra=Extra.ignore):
-    api_key: str = "NoKey"
+    api_key: str = None
     history_save_path: Path = Path("data/ChatHistory").absolute()
     openai_proxy: str = None
     openai_api_base: str = None
