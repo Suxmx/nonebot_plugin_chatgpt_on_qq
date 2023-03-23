@@ -19,17 +19,21 @@
 ## 安装  
 推荐使用 `nb plugin install nonebot_plugin_chatgpt_on_qq` 一键安装
 ## 使用前须知    
-1.在env中添加你的api_key(必选)  
-2.添加代理(国内必选) #填写`NoError`可以去除插件启动时的警告信息
-3.设置历史对话保存路径(可选,默认保存至`./data/ChatHistory`)  
-4.设置保存的最大历史聊天记录长度  
-5.cf workers相关(?  (可选)
-6.管理员（可删除他人创建的对话，可设置多个）
+1.在env中添加你的api_key(必选)
+2.可自行选择合适的GPT模型,一般无需更改，默认为`gpt-3.5-turbo`，具体可参考[官方文档](https://platform.openai.com/docs/guides/chat/instructing-chat-models)
+3.可设置使用gpt的理智值(temperature)，介于0~2之间，较高值如`0.8`会使对话更加随机，较低值如`0.2`会使对话更加集中和确定，默认为0.5，具体可参考[官方文档](https://platform.openai.com/docs/api-reference/chat/create)
+4.添加代理(国内必选) #填写`NoError`可以去除插件启动时的警告信息
+5.设置历史对话保存路径(可选,默认保存至`./data/ChatHistory`)  
+6.设置保存的最大历史聊天记录长度  
+7.cf workers相关(?  (可选)
+8.管理员（可删除他人创建的对话，可设置多个）
 
 格式如下:  
 
 ```
 api_key="填入你的api_key"
+model_name="gpt-3.5-turbo" #默认为gpt-3.5-turbo，具体可参考官方文档
+temperature=0.5 #理智值，介于0~2之间
 openai_proxy="x.x.x.x:xxxxx" #填写NoError可去除插件启动时的警告信息
 history_save_path="E:/Kawaii" #填入你的历史对话保存路径
 history_max = 10 #填入大于2的数字
