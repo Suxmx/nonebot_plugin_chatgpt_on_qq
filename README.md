@@ -26,7 +26,8 @@
 5. 设置历史对话保存路径(可选,默认保存至`./data/ChatHistory`)  
 6. 设置保存的最大历史聊天记录长度  
 7. cf workers相关(?  (可选)
-8. 管理员（可删除他人创建的对话，可设置多个）
+8. 管理员（可删除他人创建的对话，可设置多个）  
+9.预设文件夹路径(默认为data/Presets)
 
 格式如下:  
 
@@ -39,6 +40,7 @@ history_save_path="E:/Kawaii" #填入你的历史对话保存路径
 history_max = 10 #填入大于2的数字
 openai_api_base = "" #cf workers，空字符串或留空都将不使用
 admin=["qqNumber"]
+preset_path="填入自定义预设文件夹路径"
 ```
 ## 功能  
 支持群聊与私聊  
