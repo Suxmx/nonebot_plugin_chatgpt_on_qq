@@ -9,7 +9,7 @@ from datetime import date
 from conversation import GroupPanel
 
 
-API_KEY = ""
+API_KEY = "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"
 MODEL = "gpt-3.5-turbo"
 
 BASIC_PROMPT = [{"role": "user", "content": "You are ChatGPT, a large language model trained by OpenAI. Respond conversationally. Do not answer as the user. Current date: " + str(date.today())},
@@ -46,18 +46,19 @@ def AskBot(userInput: str, panel: GroupPanel):
             print("error")
 
 
+
 if __name__ == '__main__':
     bot = chatGPT.ChatGPTBot(API_KEY, BASIC_PROMPT)
-    url = "https://api.openai.com/dashboard/billing/credit_grants"
-    header = {"Authorization": "Bearer "+API_KEY}
+    url="https://api.openai.com/dashboard/billing/credit_grants"
+    header={"Authorization":"Bearer "+API_KEY}
 
-    test = [{"role": "user", "content": "1"}]
-    a = True if test[0].get("role") else False
+    test=[{"role":"user","content":"1"}]
+    a=True if test[0].get("role") else False
     print(a)
     print(type(test))
     while True:
         userInput = input("user:")
         print(bot.ask(userInput))
-        r = requests.get(url=url, headers=header)
-        dataJson = r.json()
+        r=requests.get(url=url,headers=header)
+        dataJson=r.json()
         print("目前所剩余额"+str(dataJson["total_available"]))

@@ -1,8 +1,6 @@
 import json
 import re
 
-from typing import Dict, List
-
 from nonebot import get_driver
 from nonebot.adapters.onebot.v11 import (Bot,
                                          Event,
@@ -11,21 +9,21 @@ from nonebot.log import logger
 from nonebot.plugin import on_regex, on_fullmatch
 from nonebot.params import ArgPlainText
 
-from .conversation import Conversation, GroupPanel
+from .conversation import Conversation, GroupPanel,listpresets
 from .custom_errors import NoApiKeyError
+
 Chat = on_regex(r"^/talk\s+.+")  # 聊天
 CallMenu = on_fullmatch("/chat")  # 呼出菜单
 ShowList = on_regex(r"^/chat\s+list\s*$")  # 展示群聊天列表
 Join = on_regex(r"^/chat\s+join\s+\d+")  # 加入对话
 Delete = on_regex(r"^/chat\s+delete\s+\d+")  # 删除对话
 Dump = on_regex(r"^/chat\s+dump$")  # 导出json
-CreateConversationWithPrompt = on_regex(
-    r"^/chat\s+create\s+.+$")  # 利用自定义prompt创建对话
-CreateConversationWithTemplate = on_regex(r"^/chat\s+create$")  # 利用模板创建对话
-CreateConversationWithJson = on_regex(r"^/chat\s+json$")  # 利用json创建对话
+CreateConversationWithPrompt = on_regex(r"^/chat\s+create\s+.+$")# 利用自定义prompt创建对话
+CreateConversationWithTemplate = on_regex(r"^/chat\s+create$")# 利用模板创建对话
+CreateConversationWithJson = on_regex(r"^/chat\s+json$")# 利用json创建对话
 
-groupPanels: Dict[int,GroupPanel] = {}
-privateConversations: Dict[int, Conversation] = {}
+groupPanels: dict[int:GroupPanel] = {}
+privateConversations: dict[int, Conversation] = {}
 
 
 @Dump.handle()
@@ -61,12 +59,12 @@ async def _(bot: Bot, event: Event):
         else:  # 获取用户当前加入的对话
             userConversation: Conversation = groupPanel.userInConversation.get(
                 userId)
-        try:
-            answer = await userConversation.ask(userInput)
-            await userConversation.GroupAutoSave(groupId)
-        except Exception as e:
-            answer = "获取gpt回答失败,访问请求速度过快或是网络波动orz\n若反复出现,可尝试使用/chat delete 序号 命令来删除该对话并重新创建"
-            logger.error(str(e))
+        # try:
+        answer = await userConversation.ask(userInput)
+        await userConversation.GroupAutoSave(groupId)
+        # except Exception as e:
+        #     answer = "获取gpt回答失败,访问请求速度过快或是网络波动orz\n若反复出现,可尝试使用/chat delete 序号 命令来删除该对话并重新创建"
+        #     logger.error(str(e))
         await Chat.finish(answer, at_sender=True)
     if isinstance(event, PrivateMessageEvent):
         userId = event.get_user_id()
@@ -74,14 +72,14 @@ async def _(bot: Bot, event: Event):
             await Chat.finish("尚未创建过对话!请用/chat create命令来创建对话!")
         else:
             userConversation: Conversation = privateConversations.get(userId)
-            try:
-                answer = await userConversation.ask(userInput)
-                await Chat.send(answer)
-                await userConversation.PrivateAutoSave()
-            except Exception as e:
-                answer = "test获取gpt回答失败,访问请求速度过快或是网络波动orz\n若反复出现,可尝试使用/chat delete 序号 命令来删除该对话并重新创建"
-                logger.error(str(e))
-                await Chat.finish(answer, at_sender=True)
+            # try:
+            answer = await userConversation.ask(userInput)
+            await Chat.send(answer)
+            await userConversation.PrivateAutoSave()
+            # except Exception as e:
+            #     answer="test获取gpt回答失败,访问请求速度过快或是网络波动orz\n若反复出现,可尝试使用/chat delete 序号 命令来删除该对话并重新创建"
+            #     logger.error(str(e))
+            #     await Chat.finish(answer,at_sender=True)
 
 
 @Join.handle()
@@ -115,7 +113,7 @@ async def _(bot: Bot, event: Event):
         + "/chat join 序号(指/chat list中的序号) :参与list中的某个对话\n"
         + "/chat create (prompt) :自定义prompt来创建一个新的对话\n"
         + "/chat delete 序号(指/chat list中的序号) :删除list中的某个对话\n"
-        + "/chat dump :导出当前对话的历史记录json"
+        + "/chat dump :导出当前对话的历史记录json\n"
     )
     await CallMenu.finish(menu, at_sender=True)
 
@@ -132,9 +130,9 @@ async def _(event: Event):
         if id < 1 or id > len(groupPanel.conversations):
             await Join.finish("序号超出!", at_sender=True)
         userId = event.get_user_id()
-        if groupPanel.conversations[id-1].owner.id == userId or userId in groupPanel.conversations[id-1].admin:
+        if groupPanel.conversations[id-1].owner.id == userId:
             conver = groupPanel.conversations[id-1]
-            jointUser: List[int] = []
+            jointUser: list[int] = []
             for user, conversation in groupPanel.userInConversation.items():
                 if conver == conversation:
                     jointUser.append(user)
@@ -201,9 +199,8 @@ async def _(bot: Bot, event: Event):
 
 @CreateConversationWithTemplate.handle()
 async def CreateConversation(event: Event):
-    await CreateConversationWithTemplate.send("请选择模板:\n" +
-                                              "1.普通ChatGPT\n" +
-                                              "2.猫娘\n", at_sender=True)
+    ans=listpresets()
+    await CreateConversationWithTemplate.send(ans, at_sender=True)
 
 # 暂时完成
 
@@ -223,19 +220,21 @@ async def Create(event: Event, id: str = ArgPlainText("template")):
         newConversation = Conversation.CreateWithTemplate(id, userId)
     except NoApiKeyError:
         await CreateConversationWithTemplate.finish("请机器人管理员在设置中添加APIKEY！")
-    except Exception as e:
-        logger.error(str(e))
-    if int(id) == 1:
-        if newConversation is not None:
-            await CreateConversationWithTemplate.send("创建普通模板成功!", at_sender=True)
-    elif int(id) == 2:
-        if newConversation is not None:
-            await CreateConversationWithTemplate.send("创建猫娘模板成功!", at_sender=True)
-    elif int(id) == 3:
-        if newConversation is not None:
-            await CreateConversationWithTemplate.send("创建诺拉模板成功!", at_sender=True)
-    else:
-        await CreateConversationWithTemplate.finish("不存在该序号!")
+    if newConversation is not None:
+        await CreateConversationWithTemplate.send(f"创建{newConversation.name}模板成功!",at_sender=True)
+    else :
+        await CreateConversationWithTemplate.finish("输入ID无效!")
+    # if int(id) == 1:
+    #     if newConversation is not None:
+    #         await CreateConversationWithTemplate.send("创建普通模板成功!", at_sender=True)
+    # elif int(id) == 2:
+    #     if newConversation is not None:
+    #         await CreateConversationWithTemplate.send("创建猫娘模板成功!", at_sender=True)
+    # elif int(id) == 3:
+    #     if newConversation is not None:
+    #         await CreateConversationWithTemplate.send("创建诺拉模板成功!", at_sender=True)
+    # else:
+    #     await CreateConversationWithTemplate.finish("不存在该序号!")
     if ifGroup:
         if not groupPanels.get(event.group_id):
             groupPanels[event.group_id] = GroupPanel()

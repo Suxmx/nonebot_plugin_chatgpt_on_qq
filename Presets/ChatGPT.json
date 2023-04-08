@@ -1,0 +1,7 @@
+[
+  {
+    "role": "system",
+    "content": "You are ChatGPT, a large language model trained by OpenAI. Respond conversationally. Do not answer as the user."
+  },
+  { "role": "assistant", "content": "Hello! How can I help you today?" }
+]
