@@ -6,3 +6,5 @@ history3.json
 result_example.json
 test.json
 test.py
+**/__pycache__
+*.pyc
