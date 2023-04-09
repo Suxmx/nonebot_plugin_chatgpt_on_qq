@@ -56,7 +56,7 @@ class PromptManager:
 
 class ChatGPTBot:
     def __init__(self, api_key: str, basic_prompt,history_max:int) -> None:
-        if api_key is not "NoKey":
+        if api_key != "NoKey":
             openai.api_key = api_key
         else:
             raise NoApiKeyError("未设置ApiKey")
