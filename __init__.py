@@ -108,7 +108,7 @@ async def _(bot: Bot, event: Event):
         + "先用/chat create命令,选择模板来创建对话,随后/talk 内容 来对话\n\n"
         + "/chat :获取菜单\n"
         + "/chat create :利用模板创建一个对话并加入\n"
-        + "/talk <内容> :在当前的对话进行聊天"
+        + "/talk <内容> :在当前的对话进行聊天\n"
         + "/chat list :获得当前已创建的对话列表\n"
         + "/chat join 序号(指/chat list中的序号) :参与list中的某个对话\n"
         + "/chat create (prompt) :自定义prompt来创建一个新的对话\n"
