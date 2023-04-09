@@ -19,7 +19,7 @@ def loadall(path: Path) -> list[presetcls]:
         for file in files:
             if file.endswith(".json"):
                 logger.debug(root)
-                with open(os.path.join(root, file), "r", encoding="GB2312") as f:
+                with open(os.path.join(root, file), "r", encoding="utf8") as f:
                     flag = True
                     filename = file.split(".")[0]
                     try:
