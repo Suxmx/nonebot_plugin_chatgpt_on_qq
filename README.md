@@ -44,7 +44,7 @@ preset_path="填入自定义预设文件夹路径"
 ```
 ## 功能  
 新:支持读取json格式的预设(具体可以参考Presets文件夹中的json文件)，并使预设可作为模板被创建  
-组合技:可以用/chat create <prmopt>创建空白模板ChatGPT以及后续对话来调教机器人，调教完成后使用/chat dump导出聊天记录json，将user改为system，保存在json文件夹就可以创建一个属于你自己的预设了！  
+`组合技:可以用/chat create <prmopt>创建空白模板ChatGPT以及后续对话来调教机器人，调教完成后使用/chat dump导出聊天记录json，将user改为system，保存在json文件夹就可以创建一个属于你自己的预设了！`  
 支持群聊与私聊  
 群聊中可同时创建多个会话,对话间相互独立  
 对话时会保存一部分上下文信息(默认保存10条,可在.env中设置)    
