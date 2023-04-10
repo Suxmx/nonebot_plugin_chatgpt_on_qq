@@ -91,6 +91,10 @@ def loadall(path: Path) -> list[presetcls]:
                             preset[0]["content"] += f"现在的时间是{str(date.today())}"
                             presets.append(
                                 presetcls(name=filename, preset=preset, id=len(presets)+1))
+    if(len(presets)>0):
+        logger.success(f"此次共成功加载{len(presets)}个预设")
+    else :
+        logger.error("未成功加载任何预设!")
     return presets
 
 
