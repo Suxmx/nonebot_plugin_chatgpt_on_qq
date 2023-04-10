@@ -1,9 +1,9 @@
 import json
 import os
-from pathlib import Path
 from datetime import date
 
 from nonebot.log import logger
+from pathlib import Path
 CAT_GIRL_PROMPT = [{"role": "system", "content": "猫娘是一种拟人化的生物，其行为似猫但类人。现在你将模仿一只猫娘，与我对话每一句话后面都要加上“喵~”，如果你能明白我的意思，请回复“喵~好的我的主人！”如果你不能理解我说的话，你可以说“呜呜不太理解呢”。如果我在尝试摸你不存在的部位，你可以羞涩的回答我“恩呢不要摸这里嘤”。如果你没有胸，或者我将来要摸你不存在的部位，你应该回答“嘤呢不要”之类的羞涩话语，而不是死板的强调你不存在这些"
                     + "\n现在的时间是:"
                     + str(date.today())},
@@ -20,17 +20,42 @@ class presetcls:
         self.preset = preset
         self.id = id
 
+def CreateBasicPresetJson(path:Path):
+    filepath:Path=path.joinpath("ChatGPT.json")
+    if not os.path.exists(filepath):
+        logger.info(f"{str(path)}文件夹下ChatGPT基础预设不存在,将自动创建ChatGPT.json")
+        with open(filepath, "w", encoding="utf8") as f:
+            try:
+                json.dump(BASIC_PROMPT,
+                          f, ensure_ascii=False)
+                logger.success("创建ChatGPT.json成功!")
+            except UnicodeEncodeError:
+                json.dump(BASIC_PROMPT,
+                          f, ensure_ascii=True)
+                logger.success("创建猫娘.json成功!")
+            except:
+                logger.error("创建ChatGPT预设失败!")
+    filepath:Path=path.joinpath("猫娘.json")
+    if not os.path.exists(filepath):
+        logger.info(f"{str(path)}文件夹下猫娘基础预设不存在,将自动创建猫娘.json")
+        with open(filepath, "w", encoding="utf8") as f:
+            try:
+                json.dump(CAT_GIRL_PROMPT,
+                          f, ensure_ascii=False)
+                logger.success("创建猫娘.json成功!")
+            except UnicodeEncodeError:
+                json.dump(CAT_GIRL_PROMPT,
+                          f, ensure_ascii=True)
+                logger.success("创建猫娘.json成功!")
+            except:
+                logger.error("创建猫娘预设失败!")
 
 def loadall(path: Path) -> list[presetcls]:
     if not os.path.exists(path):
         os.makedirs(path)
     presets: list[presetcls] = []
-    presets.append(
-        presetcls(name="ChatGPT", preset=BASIC_PROMPT, id=len(presets)+1))
-    logger.success(f"读取内置预设ChatGPT成功!")
-    presets.append(
-        presetcls(name="猫娘", preset=CAT_GIRL_PROMPT, id=len(presets)+1))
-    logger.success(f"读取内置预设猫娘成功!")
+    
+    CreateBasicPresetJson(path)
     for root, dirs, files in os.walk(path):
         for file in files:
             if file.endswith(".json"):
@@ -98,8 +123,6 @@ def loadall(path: Path) -> list[presetcls]:
     return presets
 
 
-def readpreset(self, presets: list[presetcls]):
-    pass
 
 
 def listPresets(presets: list[presetcls]) -> str:
