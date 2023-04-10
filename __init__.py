@@ -1,5 +1,6 @@
 import json
 import re
+import openai
 
 from nonebot import get_driver
 from nonebot.adapters.onebot.v11 import (Bot,
@@ -50,36 +51,58 @@ async def _(bot: Bot, event: Event):
     if isinstance(event, GroupMessageEvent):
         groupId = event.group_id
         userId = event.get_user_id()
-        if not groupPanels.get(groupId):
-            await Chat.finish("当前群尚未创建过对话!请用/chat create命令来创建对话!", at_sender=True)
-        else:  # 获取GroupPanel
+        if not groupPanels.get(groupId) or not groupPanels.get(groupId).userInConversation.get(userId):# 若没有对话则先自动创建一个
+            try:
+                newConversation = Conversation.CreateWithTemplate("1", userId)
+            except:
+                await Chat.finish("自动创建失败!请检查模板是否存在", at_sender=True)
+            await Chat.send(f"自动创建{newConversation.name}成功",at_sender=True)
+            groupPanels[event.group_id] = GroupPanel()
+            groupPanels[event.group_id].userInConversation[userId] = newConversation
+            groupPanels[event.group_id].conversations.append(newConversation)
+            try:
+                answer = await newConversation.ask(userInput)
+                await newConversation.GroupAutoSave(groupId)
+            except openai.InvalidRequestError as e:
+                await Chat.finish(str(e))
+            
+        else:  # 获取GroupPanel以及用户所在的对话
             groupPanel = groupPanels.get(groupId)
-        if not groupPanel.userInConversation.get(userId):
-            await Chat.finish("你还没有加入一个对话!请用/chat create命令来创建对话!", at_sender=True)
-        else:  # 获取用户当前加入的对话
             userConversation: Conversation = groupPanel.userInConversation.get(
                 userId)
-        # try:
-        answer = await userConversation.ask(userInput)
-        await userConversation.GroupAutoSave(groupId)
-        # except Exception as e:
-        #     answer = "获取gpt回答失败,访问请求速度过快或是网络波动orz\n若反复出现,可尝试使用/chat delete 序号 命令来删除该对话并重新创建"
-        #     logger.error(str(e))
+            try:
+                answer = await userConversation.ask(userInput)
+                await userConversation.GroupAutoSave(groupId)
+            except openai.InvalidRequestError as e:
+                await Chat.finish(str(e))
+
         await Chat.finish(answer, at_sender=True)
     if isinstance(event, PrivateMessageEvent):
         userId = event.get_user_id()
-        if not privateConversations.get(userId):
-            await Chat.finish("尚未创建过对话!请用/chat create命令来创建对话!")
+        if not privateConversations.get(userId):# 自动创建
+            newConversation=None
+            try:
+                newConversation = Conversation.CreateWithTemplate("1", userId)
+            except:
+                await Chat.finish("自动创建失败!请检查模板是否存在")
+            if newConversation is not None:
+                await Chat.send(f"自动创建{newConversation.name}成功",at_sender=True)
+                privateConversations[userId] = newConversation
+                try:
+                    answer = await newConversation.ask(userInput)
+                    await Chat.send(answer)
+                    await newConversation.PrivateAutoSave()
+                except openai.InvalidRequestError as e:
+                    await Chat.finish(str(e))
         else:
             userConversation: Conversation = privateConversations.get(userId)
-            # try:
-            answer = await userConversation.ask(userInput)
-            await Chat.send(answer)
-            await userConversation.PrivateAutoSave()
-            # except Exception as e:
-            #     answer="test获取gpt回答失败,访问请求速度过快或是网络波动orz\n若反复出现,可尝试使用/chat delete 序号 命令来删除该对话并重新创建"
-            #     logger.error(str(e))
-            #     await Chat.finish(answer,at_sender=True)
+            try:
+                answer = await userConversation.ask(userInput)
+                await Chat.send(answer)
+                await userConversation.PrivateAutoSave()
+            except openai.InvalidRequestError as e:
+                    await Chat.finish(str(e))
+
 
 
 @Join.handle()
@@ -224,17 +247,6 @@ async def Create(event: Event, id: str = ArgPlainText("template")):
         await CreateConversationWithTemplate.send(f"创建{newConversation.name}模板成功!",at_sender=True)
     else :
         await CreateConversationWithTemplate.finish("输入ID无效!")
-    # if int(id) == 1:
-    #     if newConversation is not None:
-    #         await CreateConversationWithTemplate.send("创建普通模板成功!", at_sender=True)
-    # elif int(id) == 2:
-    #     if newConversation is not None:
-    #         await CreateConversationWithTemplate.send("创建猫娘模板成功!", at_sender=True)
-    # elif int(id) == 3:
-    #     if newConversation is not None:
-    #         await CreateConversationWithTemplate.send("创建诺拉模板成功!", at_sender=True)
-    # else:
-    #     await CreateConversationWithTemplate.finish("不存在该序号!")
     if ifGroup:
         if not groupPanels.get(event.group_id):
             groupPanels[event.group_id] = GroupPanel()

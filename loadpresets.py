@@ -27,8 +27,10 @@ def loadall(path: Path) -> list[presetcls]:
     presets: list[presetcls] = []
     presets.append(
         presetcls(name="ChatGPT", preset=BASIC_PROMPT, id=len(presets)+1))
+    logger.success(f"读取内置预设ChatGPT成功!")
     presets.append(
         presetcls(name="猫娘", preset=CAT_GIRL_PROMPT, id=len(presets)+1))
+    logger.success(f"读取内置预设猫娘成功!")
     for root, dirs, files in os.walk(path):
         for file in files:
             if file.endswith(".json"):
@@ -70,7 +72,7 @@ def loadall(path: Path) -> list[presetcls]:
                             preset: list[dict[str, str]] = json.load(f)
                         except:
                             flag = False
-                            logger.error(f"预设: {filename} 读取失败!json格式错误!")
+                            logger.error(f"预设: {filename} 读取失败!")
                             break
                         # name = file.split(".")[0]
 
