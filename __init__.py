@@ -5,10 +5,12 @@ import openai
 from nonebot import get_driver
 from nonebot.adapters.onebot.v11 import (Bot,
                                          Event,
-                                         GroupMessageEvent, PrivateMessageEvent)
+                                         GroupMessageEvent, PrivateMessageEvent,
+                                         GROUP_ADMIN, GROUP_OWNER)
 from nonebot.log import logger
 from nonebot.plugin import on_regex, on_fullmatch
 from nonebot.params import ArgPlainText
+from nonebot.permission import SUPERUSER
 
 from .conversation import Conversation, GroupPanel,listpresets
 from .custom_errors import NoApiKeyError
@@ -142,7 +144,7 @@ async def _(bot: Bot, event: Event):
 
 
 @Delete.handle()
-async def _(event: Event):
+async def _(bot: Bot, event: Event):
     msg = event.get_plaintext()
     msg = re.sub(r"^/chat\s+delete\s+", '', msg)
     id = int(msg)
@@ -153,7 +155,8 @@ async def _(event: Event):
         if id < 1 or id > len(groupPanel.conversations):
             await Join.finish("序号超出!", at_sender=True)
         userId = event.get_user_id()
-        if groupPanel.conversations[id-1].owner.id == userId:
+        perm_check = (await SUPERUSER(bot, event)) or (await GROUP_ADMIN(bot, event)) or (await GROUP_OWNER(bot, event))
+        if groupPanel.conversations[id-1].owner.id == userId or perm_check:
             conver = groupPanel.conversations[id-1]
             jointUser: list[int] = []
             for user, conversation in groupPanel.userInConversation.items():
