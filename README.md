@@ -8,8 +8,8 @@
 
 # 多功能ChatGPT插件
 ✨基于chatGPT-3.5-turboAPI的nonebot插件✨  
-<a href="https://pypi.python.org/pypi/nonebot_plugin_tuan_chatgpt">
-    <img src="https://img.shields.io/pypi/v/nonebot_plugin_tuan_chatgpt.svg" alt="pypi">
+<a href="https://pypi.python.org/pypi/nonebot-plugin-chatgpt-on-qq">
+    <img src="https://img.shields.io/pypi/v/nonebot-plugin-chatgpt-on-qq.svg" alt="pypi">
 </a>
 <img src="https://img.shields.io/badge/python-3.8+-blue.svg" alt="python">
 
@@ -17,7 +17,7 @@
 
 
 ## 安装  
-推荐使用 `nb plugin install nonebot_plugin_chatgpt_on_qq` 一键安装
+推荐使用 `nb plugin install nonebot-plugin-chatgpt-on-qq` 一键安装
 ## 使用前须知    
 1. 在env中添加你的api_key(必选)
 2. 可自行选择合适的GPT模型，如`gpt-3.5-turbo-0301`，一般无需更改，默认为`gpt-3.5-turbo`，具体可参考[官方文档](https://platform.openai.com/docs/guides/chat/instructing-chat-models)
@@ -26,7 +26,29 @@
 5. 设置历史对话保存路径(可选,默认保存至`./data/ChatHistory`)  
 6. 设置保存的最大历史聊天记录长度  
 7. cf workers相关(?  (可选)
-8.预设文件夹路径(默认为`./data/Presets`)
+8. 预设文件夹路径(默认为`./data/Presets`)
+9. 是否允许私聊触发插件
+10. 因为电脑端的qq在输入/chat xxx时候经常被转换成表情，所以支持自定义指令前缀替换"chat"，支持中文。
+    
+    比如填写change_chat_to="Chat"，则所有以 /chat 开头的命令都支持 以 /Chat 开头，其余不变，如：/Chat list 
+
+    说是替换，实际上原本的/chat仍然支持触发指令，只不过多了一个自定义别称
+
+    如果不需要可以在配置文件中直接不填写这一项
+
+
+|        配置项        | 必填  | 类型    |        默认值         |                                   说明                                    |
+|:-----------------:|:---:|-------|:------------------:|:-----------------------------------------------------------------------:|
+|      api_key      |  是  | str   |      "NoKey"       |                        填入你的api_key,类似"sk-xxx..."                        |
+|    model_name     |  否  | str   |  "gpt-3.5-turbo"   |                             模型名称，具体可参考官方文档                              |
+|    temperature    |  否  | float |        0.5         | 设置使用gpt的理智值(temperature)，介于0~2之间，较高值如`0.8`会使对话更加随机，较低值如`0.2`会使对话更加集中和确定 |
+|   openai_proxy    |  否  | str   |        None        |                          正向HTTP代理 (HTTP PROXY)                          | 
+| history_save_path |  否  | str   | "data/ChatHistory" |                               设置历史对话保存路径                                |
+|    history_max    |  否  | int   |         10         |                        设置保存的最大历史聊天记录长度，填入大于2的数字                         |
+|  openai_api_base  |  否  | str   |        None        |                                  反向代理                                   |
+|    preset_path    |  否  | str   |   "data/Presets"   |                              填入自定义预设文件夹路径                               |
+|   allow_private   |  否  | bool  |        true        |                              插件是否支持私聊，默认开启                              |
+|  change_chat_to   |  否  | str   |        None        |           因为电脑端的qq在输入/chat xxx时候经常被转换成表情，所以支持自定义指令前缀替换"chat"            |
 
 格式如下:  
 
@@ -39,6 +61,8 @@ history_save_path="E:/Kawaii" #填入你的历史对话保存路径
 history_max = 10 #填入大于2的数字
 openai_api_base = "" #cf workers，空字符串或留空都将不使用
 preset_path="填入自定义预设文件夹路径"
+allow_private=true
+change_chat_to="Chat"
 ```
 ## 功能  
 新:支持读取json格式的预设(具体可以参考Presets文件夹中的json文件)，并使预设可作为模板被创建  
@@ -61,6 +85,19 @@ preset_path="填入自定义预设文件夹路径"
 `/chat json` 利用历史对话json来回到一个对话,输入该命令后会提示你在下一个消息中输入json  
 `/chat dump` 导出当前对话的json文件  
 `/talk` (对话内容) 在当前对话中进行对话(同样不需要括号，后面直接接你要说的话就行)  
+
+|             指令             |       权限        | 需要@ |  范围   |                    说明                     |
+|:--------------------------:|:---------------:|:---:|:-----:|:-----------------------------------------:|
+|          `/chat`           |       群员        |  否  | 私聊/群聊 |                  获取命令菜单                   |
+|       `/chat create`       |       群员        |  否  | 私聊/群聊 |           根据预制模板prompt创建一个新的对话            |
+| `/chat create <自定义prompt>` |       群员        |  否  | 私聊/群聊 |     利用<自定义prompt>作为基础prompt来创建一个新的对话      |
+|        `/chat list`        |       群员        |  否  | 私聊/群聊 |           获取当前群所有存在的对话的序号及创建时间            |
+|     `/chat join <id>`      |       群员        |  否  | 私聊/群聊 |     加入list中序号为<id>的对话(不需要尖括号，直接跟id就行)     |
+|    `/chat delete <id>`     | 主人/群主/管理员/会话创建人 |  否  | 私聊/群聊 |     删除list中序号为<id>的对话(不需要尖括号，直接跟id就行)     |
+|        `/chat json`        |       群员        |  否  | 私聊/群聊 | 利用历史对话json来回到一个对话,输入该命令后会提示你在下一个消息中输入json |
+|        `/chat dump`        |       群员        |  否  | 私聊/群聊 |               导出当前对话的json文件               |
+|       `/talk <对话内容>`       |       群员        |  否  | 私聊/群聊 |  <对话内容> 在当前对话中进行对话(同样不需要括号，后面直接接你要说的话就行)  |
+
 
 ## 使用效果预览  
 ### 利用模板创建新的对话  

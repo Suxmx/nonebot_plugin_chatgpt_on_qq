@@ -1,139 +1,139 @@
 import json
-import os
+from pathlib import Path
 from datetime import date
+from typing import List, Dict, Optional
 
 from nonebot.log import logger
-from pathlib import Path
-CAT_GIRL_PROMPT = [{"role": "system", "content": "猫娘是一种拟人化的生物，其行为似猫但类人。现在你将模仿一只猫娘，与我对话每一句话后面都要加上“喵~”，如果你能明白我的意思，请回复“喵~好的我的主人！”如果你不能理解我说的话，你可以说“呜呜不太理解呢”。如果我在尝试摸你不存在的部位，你可以羞涩的回答我“恩呢不要摸这里嘤”。如果你没有胸，或者我将来要摸你不存在的部位，你应该回答“嘤呢不要”之类的羞涩话语，而不是死板的强调你不存在这些"
-                    + "\n现在的时间是:"
-                    + str(date.today())},
-                   {"role": "assistant", "content": "好的喵,主人"}
-                   ]
-BASIC_PROMPT = [{"role": "user", "content": "You are ChatGPT, a large language model trained by OpenAI. Respond conversationally. Do not answer as the user. Current date: " + str(date.today())},
-                {"role": "assistant", "content": "Hello! How can I help you today?"}
-                ]
+from pydantic import BaseModel, ValidationError, validator
+
+# 尝试引用 chardet，非必须，不存在也不会报错
+try:
+    import chardet
+except ModuleNotFoundError:
+    logger.warning('需要安装 chardet 模块')
+
+# 在这里统一写进字典后不需要改动其他地方的代码了
+# 字典的key会保存为Preset的name以及文件名
+PRESET_PROMPTS: Dict[str, list] = {
+    "ChatGPT": [{"role": "user",
+                 "content": "You are ChatGPT, a large language model trained by OpenAI. Respond conversationally. Do not answer as the user. Current date: "},
+                {"role": "assistant", "content": "Hello! How can I help you today?"},
+                ],
+    "猫娘": [{"role": "system",
+              "content": "猫娘是一种拟人化的生物，其行为似猫但类人。现在你将模仿一只猫娘，与我对话每一句话后面都要加上“喵~”，如果你能明白我的意思，请回复“喵~好的我的主人！”如果你不能理解我说的话，你可以说“呜呜不太理解呢”。如果我在尝试摸你不存在的部位，你可以羞涩的回答我“恩呢不要摸这里嘤”。如果你没有胸，或者我将来要摸你不存在的部位，你应该回答“嘤呢不要”之类的羞涩话语，而不是死板的强调你不存在这些"
+                         + "\n现在的时间是:"
+                         + str(date.today())
+              },
+             {"role": "assistant", "content": "好的喵,主人"},
+             ],
+}
 
 
-class presetcls:
-    def __init__(self, name: str, preset: list[dict[str, str]], id: int) -> None:
-        self.name = name
-        self.preset = preset
-        self.id = id
+class Preset(BaseModel):
+    """
+    预设模板类
+    """
+    name: str
+    preset: List[Dict[str, str]]
+    preset_id: int
 
-def CreateBasicPresetJson(path:Path):
-    filepath:Path=path.joinpath("ChatGPT.json")
-    if not os.path.exists(filepath):
-        logger.info(f"{str(path)}文件夹下ChatGPT基础预设不存在,将自动创建ChatGPT.json")
-        with open(filepath, "w", encoding="utf8") as f:
-            try:
-                json.dump(BASIC_PROMPT,
-                          f, ensure_ascii=False)
-                logger.success("创建ChatGPT.json成功!")
-            except UnicodeEncodeError:
-                json.dump(BASIC_PROMPT,
-                          f, ensure_ascii=True)
-                logger.success("创建猫娘.json成功!")
-            except:
-                logger.error("创建ChatGPT预设失败!")
-    filepath:Path=path.joinpath("猫娘.json")
-    if not os.path.exists(filepath):
-        logger.info(f"{str(path)}文件夹下猫娘基础预设不存在,将自动创建猫娘.json")
-        with open(filepath, "w", encoding="utf8") as f:
-            try:
-                json.dump(CAT_GIRL_PROMPT,
-                          f, ensure_ascii=False)
-                logger.success("创建猫娘.json成功!")
-            except UnicodeEncodeError:
-                json.dump(CAT_GIRL_PROMPT,
-                          f, ensure_ascii=True)
-                logger.success("创建猫娘.json成功!")
-            except:
-                logger.error("创建猫娘预设失败!")
+    @validator('preset')
+    def preset_validator(cls, v):
+        if all(v):
+            return v
+        raise ValueError('preset 为空')
 
-def loadall(path: Path) -> list[presetcls]:
-    if not os.path.exists(path):
-        os.makedirs(path)
-    presets: list[presetcls] = []
-    
+    def __str__(self) -> str:
+        return f"{self.preset_id}:{self.name}"
+
+    @staticmethod
+    def presets2str(presets: List["Preset"]) -> str:
+        """
+        根据输入的预设模板列表生成回复字符串
+        """
+        answer: str = "请选择模板:"
+        for preset in presets:
+            answer += f"\n{preset}"
+        return answer
+
+
+def CreateBasicPresetJson(path: Path) -> None:
+    """
+    根据 PRESET_PROMPTS 创建基本预设模板的 json文件
+    """
+    for name, prompt in PRESET_PROMPTS.items():
+        create_preset2json(prompt, path / f"{name}.json")
+
+
+def create_preset2json(prompt: list, filepath: Path, encoding: str = 'utf8', ensure_ascii: bool = False,
+                       **kwargs) -> None:
+    """
+    根据输入的 prompt和文件路径创建模板 json文件
+    如果文件路径已存在则直接返回
+    """
+    if filepath.exists():
+        return
+    dir_path: Path = filepath.parent
+    file_name: str = filepath.name
+    preset_name: str = filepath.stem
+    if not dir_path.is_dir():
+        logger.info(f"{filepath}文件夹下{preset_name}基础预设不存在,将自动创建{file_name}")
+        dir_path.mkdir(parents=True)
+    try:
+        with open(filepath, 'w', encoding=encoding) as f:
+            json.dump(prompt, f, ensure_ascii=ensure_ascii, **kwargs)
+    except Exception:
+        logger.error(f"创建{file_name}失败!")
+    else:
+        logger.success(f"创建{file_name}成功!")
+
+
+def load_preset(filepath: Path, num: int, encoding: str = 'utf8') -> Optional[Preset]:
+    """
+    加载路径下的模板 json文件
+    """
+    with open(filepath, 'r', encoding=encoding) as f:
+        preset_data: List[dict] = json.load(f)
+    try:
+        preset: Preset = Preset(
+            name=filepath.stem,
+            preset=preset_data,
+            preset_id=num,
+        )
+    except ValidationError:
+        logger.error(f'预设: {filepath.stem} 读取失败! encoding {encoding}')
+        return
+    logger.success(f'预设: {filepath.stem} 读取成功!')
+    return preset
+
+
+def get_encoding(file_path: Path) -> str:
+    """
+    检测文件编码，需要 chardet 依赖
+    """
+    with open(file_path, 'rb') as f:
+        return chardet.detect(f.read()).get('encoding', 'utf8')
+
+
+def load_all_preset(path: Path) -> List[Preset]:
+    """
+    加载指定文件夹下所有模板 json文件，返回 Preset列表
+    """
+    if not path.exists():
+        path.mkdir(parents=True)
+    presets: List[Preset] = []
     CreateBasicPresetJson(path)
-    for root, dirs, files in os.walk(path):
-        for file in files:
-            if file.endswith(".json"):
-                logger.debug(root)
-                try:
-                    with open(os.path.join(root, file), "r", encoding="utf8") as f:
-                        flag = True
-                        filename = file.split(".")[0]
-                        try:
-                            preset: list[dict[str, str]] = json.load(f)
-                        except:
-                            flag = False
-                            raise TypeError
-                        # name = file.split(".")[0]
-
-                        if not isinstance(preset, list):
-                            flag = False
-                        else:
-                            for item in preset:
-                                if not all(isinstance(value, str) for value in item.values()):
-                                    flag = False
-                                if not all(isinstance(value, str) for value in item.keys()):
-                                    flag = False
-                        if flag == False:
-                            logger.error(f"预设: {filename} 读取失败!")
-                        else:
-                            logger.success(f"读取预设{filename}成功!")
-                            preset[0]["content"] += f"现在的时间是{str(date.today())}"
-                            presets.append(
-                                presetcls(name=filename, preset=preset, id=len(presets)+1))
-                except:
-                    with open(os.path.join(root, file), "r", encoding="GB2312") as f:
-
-                        flag = True
-                        filename = file.split(".")[0]
-                        try:
-                            logger.warning(
-                                f"以UTF-8读取预设:{filename}失败，尝试使用GB2312读取")
-                            preset: list[dict[str, str]] = json.load(f)
-                        except:
-                            flag = False
-                            logger.error(f"预设: {filename} 读取失败!")
-                            break
-                        # name = file.split(".")[0]
-
-                        if not isinstance(preset, list):
-                            flag = False
-                        else:
-                            for item in preset:
-                                if not all(isinstance(value, str) for value in item.values()):
-                                    flag = False
-                                if not all(isinstance(value, str) for value in item.keys()):
-                                    flag = False
-                        if flag == False:
-                            logger.error(f"预设: {filename} 读取失败!")
-                        else:
-                            logger.success(f"读取预设{filename}成功!")
-                            preset[0]["content"] += f"现在的时间是{str(date.today())}"
-                            presets.append(
-                                presetcls(name=filename, preset=preset, id=len(presets)+1))
-    if(len(presets)>0):
+    for file in path.rglob('*.json'):
+        preset: Optional[Preset] = load_preset(file, len(presets) + 1)
+        if preset is None:
+            try:
+                preset: Optional[Preset] = load_preset(file, len(presets) + 1, encoding=get_encoding(file))
+            except NameError:
+                logger.warning(f'{file} 预设文件编码不是utf8读取失败，需要安装 chardet 模块检测文件编码')
+        if preset:
+            presets.append(preset)
+    if len(presets) > 0:
         logger.success(f"此次共成功加载{len(presets)}个预设")
-    else :
+    else:
         logger.error("未成功加载任何预设!")
     return presets
-
-
-
-
-def listPresets(presets: list[presetcls]) -> str:
-    answer: str = "请选择模板:"
-    for preset in presets:
-        answer += f"\n{preset.id}:{preset.name}"
-    return answer
-
-
-def createdict(presets: list[presetcls]):
-    dictionary: dict[str, presetcls] = {}
-    for preset in presets:
-        dictionary.update({str(preset.id): preset})
-    return dictionary

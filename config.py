@@ -1,4 +1,3 @@
-from typing import Optional
 from pathlib import Path
 from pydantic import Extra, BaseModel
 
@@ -10,4 +9,7 @@ class Config(BaseModel, extra=Extra.ignore):
     openai_proxy: str = None
     openai_api_base: str = None
     history_max: int = 10
-    openai_api_base:str=None
+    temperature: float = 0.5
+    model_name: str = 'gpt-3.5-turbo'
+    allow_private: bool = True
+    change_chat_to: str = None
