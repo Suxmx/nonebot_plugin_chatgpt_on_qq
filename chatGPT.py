@@ -74,7 +74,8 @@ class ChatGPTBot:
             completion: dict = await self._get_completion(user_input, temperature)
             await self._process_completion(completion=completion)
             return completion["choices"][0]["message"]["content"]
-        except Exception:
+        except Exception as e:
+            logger.error(f'get completion error.\n{type(e)}:{e}')
             self.prompt_manager.history.pop()
             raise ConnectionError
 

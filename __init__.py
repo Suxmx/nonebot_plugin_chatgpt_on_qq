@@ -11,7 +11,7 @@ from nonebot.adapters.onebot.v11 import (Bot,
                                          GroupMessageEvent, PrivateMessageEvent,
                                          GROUP_ADMIN, GROUP_OWNER)
 from nonebot.log import logger
-from nonebot.plugin import on_regex, on_fullmatch
+from nonebot.plugin import on_regex
 from nonebot.params import ArgPlainText
 from nonebot.permission import SUPERUSER, Permission
 from nonebot.plugin import PluginMetadata
@@ -49,7 +49,7 @@ temperature: float = plugin_config.temperature
 allow_private: bool = plugin_config.allow_private
 # 因为电脑端的qq在输入/chat xxx时候经常被转换成表情，所以支持自定义指令前缀替换"chat"
 change_chat_to: str = plugin_config.change_chat_to
-pattern_str = f'/(chat|{change_chat_to})' if change_chat_to else 'chat'
+pattern_str = f'(chat|{change_chat_to})' if change_chat_to else 'chat'
 
 
 async def _allow_private_checker(event: MessageEvent) -> bool:
@@ -59,7 +59,7 @@ async def _allow_private_checker(event: MessageEvent) -> bool:
 ALLOW_PRIVATE = Permission(_allow_private_checker)
 
 Chat = on_regex(r"^/talk\s+.+", permission=ALLOW_PRIVATE)  # 聊天
-CallMenu = on_fullmatch(f"/{pattern_str}", permission=ALLOW_PRIVATE)  # 呼出菜单
+CallMenu = on_regex(rf"^/{pattern_str}$", permission=ALLOW_PRIVATE)  # 呼出菜单
 ShowList = on_regex(rf"^/{pattern_str}\s+list\s*$", permission=ALLOW_PRIVATE)  # 展示群聊天列表
 Join = on_regex(rf"^/{pattern_str}\s+join\s+\d+", permission=ALLOW_PRIVATE)  # 加入对话
 Delete = on_regex(rf"^/{pattern_str}\s+delete\s+\d+", permission=ALLOW_PRIVATE)  # 删除对话
@@ -115,6 +115,9 @@ async def _(event: Event):
         try:
             answer: str = await fin_conversation.ask(userInput, temperature)
             await fin_conversation.GroupAutoSave(groupId)
+        except ConnectionError:
+            logger.error('连接错误...')
+            await Chat.finish('连接错误...')
         except openai.InvalidRequestError as e:
             await Chat.finish(str(e))
         await Chat.finish(answer, at_sender=True)
@@ -138,6 +141,9 @@ async def _(event: Event):
             answer = await fin_conversation.ask(userInput, temperature)
             await Chat.send(answer)
             await fin_conversation.PrivateAutoSave()
+        except ConnectionError:
+            logger.error('连接错误...')
+            await Chat.finish('连接错误...')
         except openai.InvalidRequestError as e:
             await Chat.finish(str(e))
 
@@ -145,7 +151,7 @@ async def _(event: Event):
 @Join.handle()
 async def _(event: Event):
     msg = event.get_plaintext()
-    msg = re.sub(r"^/chat\s+join\s+", '', msg)
+    msg = re.sub(rf"^/{pattern_str}\s+join\s+", '', msg)
     conversation_id = int(msg)
     if isinstance(event, GroupMessageEvent):
         groupPanel = groupPanels.get(event.group_id)
@@ -170,7 +176,7 @@ async def _():
 @Delete.handle()
 async def _(bot: Bot, event: Event):
     msg = event.get_plaintext()
-    msg = re.sub(r"^/chat\s+delete\s+", '', msg)
+    msg = re.sub(rf"^/{pattern_str}\s+delete\s+", '', msg)
     conversation_id = int(msg)
     if isinstance(event, GroupMessageEvent):
         groupPanel = groupPanels.get(event.group_id)
@@ -212,7 +218,8 @@ async def _(event: Event):
         else:
             msg: str = "\n"
             for _conversation in curPanel.conversations:
-                msg += f"{curPanel.conversations.index(_conversation) + 1} 创建者:{_conversation.owner.id}\n"
+                msg += f"{curPanel.conversations.index(_conversation) + 1}. {_conversation.name} " \
+                       f"创建者:{_conversation.owner.id}\n"
             await ShowList.finish(msg, at_sender=True)
     elif isinstance(event, PrivateMessageEvent):
         await ShowList.finish("私聊中无法展示列表(最多只有一个对话)")
@@ -224,7 +231,7 @@ async def _(event: Event):
 @CreateConversationWithPrompt.handle()
 async def _(event: Event):
     msg = event.get_plaintext()
-    customPrompt: str = re.sub(r"^/chat\s+create\s*", '', msg)  # 获取用户自定义prompt
+    customPrompt: str = re.sub(rf"^/{pattern_str}\s+create\s*", '', msg)  # 获取用户自定义prompt
     if customPrompt:
         userID: int = int(event.get_user_id())
         try:
