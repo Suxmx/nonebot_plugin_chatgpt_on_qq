@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from datetime import date, datetime
+from datetime import date
 from typing import List, Dict, Optional
 
 from nonebot.log import logger
@@ -36,7 +36,6 @@ class Preset(BaseModel):
     name: str
     preset: List[Dict[str, str]]
     preset_id: int
-    time: str = None
 
     @validator('preset')
     def preset_validator(cls, v):
@@ -44,17 +43,8 @@ class Preset(BaseModel):
             return v
         raise ValueError('preset 为空')
 
-    @validator('time')
-    def time_validator(cls, v):
-        try:
-            datetime.strptime(v, '%Y-%m-%d')
-        except Exception as e:
-            print(e)
-            return str(date.today())
-        return v
-
     def __str__(self) -> str:
-        return f"{self.preset_id}:{self.name}（{self.time}）"
+        return f"{self.preset_id}:{self.name}"
 
     @staticmethod
     def presets2str(presets: List["Preset"]) -> str:

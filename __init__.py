@@ -1,6 +1,5 @@
 import json
 import re
-from datetime import datetime
 from json import JSONDecodeError
 from typing import Optional, Dict, List
 
@@ -251,7 +250,7 @@ async def _(event: Event):
                 await CreateConversationWithPrompt.finish("已存在一个对话,请先删除")
             else:
                 privateConversations[userID] = Conversation.CreateWithStr(
-                    customPrompt, userID, customPrompt[:5])
+                    customPrompt, userID, customPrompt[:6])
                 await CreateConversationWithPrompt.finish(f"用户{str(userID)}创建成功")
     else:  # 若prompt全为空
         await CreateConversationWithPrompt.finish("输入prompt不能为空格!")
@@ -309,8 +308,7 @@ async def GetJson(event: Event, jsonStr: str = ArgPlainText("jsonStr")):
         await CreateConversationWithJson.reject("Json错误!")
     userId: int = int(event.get_user_id())
     try:
-        newConversation: Conversation = Conversation(history, userId, history[0].get('content', '')[:5] +
-                                                     datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+        newConversation: Conversation = Conversation(history, userId, history[0].get('content', '')[:6])
     except NoApiKeyError:
         await CreateConversationWithJson.finish("请机器人管理员在设置中添加APIKEY！")
 
