@@ -1,18 +1,19 @@
 import json
 import re
+from datetime import datetime
 from json import JSONDecodeError
 from typing import Optional, Dict, List
 
 import openai
 from nonebot import get_driver
 from nonebot.adapters.onebot.v11 import (Bot,
-                                         Event,
+                                         Event, MessageEvent,
                                          GroupMessageEvent, PrivateMessageEvent,
                                          GROUP_ADMIN, GROUP_OWNER)
 from nonebot.log import logger
 from nonebot.plugin import on_regex, on_fullmatch
 from nonebot.params import ArgPlainText
-from nonebot.permission import SUPERUSER
+from nonebot.permission import SUPERUSER, Permission
 from nonebot.plugin import PluginMetadata
 
 from .config import Config
@@ -43,21 +44,32 @@ __plugin_meta__ = PluginMetadata(
     },
 )
 
-Chat = on_regex(r"^/talk\s+.+")  # 聊天
-CallMenu = on_fullmatch("/chat")  # 呼出菜单
-ShowList = on_regex(r"^/chat\s+list\s*$")  # 展示群聊天列表
-Join = on_regex(r"^/chat\s+join\s+\d+")  # 加入对话
-Delete = on_regex(r"^/chat\s+delete\s+\d+")  # 删除对话
-Dump = on_regex(r"^/chat\s+dump$")  # 导出json
-CreateConversationWithPrompt = on_regex(r"^/chat\s+create\s+.+$")  # 利用自定义prompt创建对话
-CreateConversationWithTemplate = on_regex(r"^/chat\s+create$")  # 利用模板创建对话
-CreateConversationWithJson = on_regex(r"^/chat\s+json$")  # 利用json创建对话
+plugin_config: Config = Config.parse_obj(get_driver().config.dict())
+temperature: float = plugin_config.temperature
+allow_private: bool = plugin_config.allow_private
+# 因为电脑端的qq在输入/chat xxx时候经常被转换成表情，所以支持自定义指令前缀替换"chat"
+change_chat_to: str = plugin_config.change_chat_to
+pattern_str = f'/(chat|{change_chat_to})' if change_chat_to else 'chat'
+
+
+async def _allow_private_checker(event: MessageEvent) -> bool:
+    return isinstance(event, GroupMessageEvent) or allow_private
+
+
+ALLOW_PRIVATE = Permission(_allow_private_checker)
+
+Chat = on_regex(r"^/talk\s+.+", permission=ALLOW_PRIVATE)  # 聊天
+CallMenu = on_fullmatch(f"/{pattern_str}", permission=ALLOW_PRIVATE)  # 呼出菜单
+ShowList = on_regex(rf"^/{pattern_str}\s+list\s*$", permission=ALLOW_PRIVATE)  # 展示群聊天列表
+Join = on_regex(rf"^/{pattern_str}\s+join\s+\d+", permission=ALLOW_PRIVATE)  # 加入对话
+Delete = on_regex(rf"^/{pattern_str}\s+delete\s+\d+", permission=ALLOW_PRIVATE)  # 删除对话
+Dump = on_regex(rf"^/{pattern_str}\s+dump$", permission=ALLOW_PRIVATE)  # 导出json
+CreateConversationWithPrompt = on_regex(rf"^/{pattern_str}\s+create\s+.+$", permission=ALLOW_PRIVATE)  # 利用自定义prompt创建对话
+CreateConversationWithTemplate = on_regex(rf"^/{pattern_str}\s+create$", permission=ALLOW_PRIVATE)  # 利用模板创建对话
+CreateConversationWithJson = on_regex(rf"^/{pattern_str}\s+json$", permission=ALLOW_PRIVATE)  # 利用json创建对话
 
 groupPanels: Dict[int, GroupPanel] = {}
 privateConversations: Dict[int, Conversation] = {}
-
-plugin_config: Config = Config.parse_obj(get_driver().config.dict())
-temperature: float = plugin_config.temperature
 
 
 @Dump.handle()
@@ -217,7 +229,7 @@ async def _(event: Event):
         userID: int = int(event.get_user_id())
         try:
             newConversation: Conversation = Conversation.CreateWithStr(
-                customPrompt, userID)
+                customPrompt, userID, customPrompt[:5])
         except NoApiKeyError:
             await CreateConversationWithPrompt.finish("请机器人管理员在设置中添加APIKEY！")
         if isinstance(event, GroupMessageEvent):  # 当在群聊中时
@@ -232,7 +244,7 @@ async def _(event: Event):
                 await CreateConversationWithPrompt.finish("已存在一个对话,请先删除")
             else:
                 privateConversations[userID] = Conversation.CreateWithStr(
-                    customPrompt, userID)
+                    customPrompt, userID, customPrompt[:5])
                 await CreateConversationWithPrompt.finish(f"用户{str(userID)}创建成功")
     else:  # 若prompt全为空
         await CreateConversationWithPrompt.finish("输入prompt不能为空格!")
@@ -284,13 +296,14 @@ async def GetJson(event: Event, jsonStr: str = ArgPlainText("jsonStr")):
     try:
         history = json.loads(jsonStr)
     except JSONDecodeError:
-        logger.error("json文件错误!")
+        logger.error("json字符串错误!")
         await CreateConversationWithJson.reject("Json错误!")
     if not history[0].get("role"):
         await CreateConversationWithJson.reject("Json错误!")
     userId: int = int(event.get_user_id())
     try:
-        newConversation: Conversation = Conversation(history, userId)
+        newConversation: Conversation = Conversation(history, userId, history[0].get('content', '')[:5] +
+                                                     datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
     except NoApiKeyError:
         await CreateConversationWithJson.finish("请机器人管理员在设置中添加APIKEY！")
 

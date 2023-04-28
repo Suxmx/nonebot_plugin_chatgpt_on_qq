@@ -11,3 +11,5 @@ class Config(BaseModel, extra=Extra.ignore):
     history_max: int = 10
     temperature: float = 0.5
     model_name: str = 'gpt-3.5-turbo'
+    allow_private: bool = True
+    change_chat_to: str = None

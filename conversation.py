@@ -63,15 +63,15 @@ class Conversation:
         self.name: str = name
 
     @classmethod
-    def CreateWithStr(cls, customPrompt: str, ownerId: int) -> "Conversation":
+    def CreateWithStr(cls, customPrompt: str, ownerId: int, name: str = '') -> "Conversation":
         customPrompt = [{"role": "user", "content": customPrompt}, {
             "role": "assistant", "content": "好"}]
-        return cls(customPrompt, ownerId)
+        return cls(customPrompt, ownerId, name)
 
     @classmethod
-    def CreateWithJson(cls, jsonStr: str, ownerId: int) -> "Conversation":
+    def CreateWithJson(cls, jsonStr: str, ownerId: int, name: str = '') -> "Conversation":
         messages: List[Dict[str, str]] = json.loads(jsonStr)
-        return cls(messages, ownerId)
+        return cls(messages, ownerId, name)
 
     @classmethod
     def CreateWithTemplate(cls, template_id: str, ownerId: int) -> "Conversation":
