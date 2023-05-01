@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import List
+from typing import List, Union
 
 from nonebot import get_driver
 from pydantic import Extra, BaseModel, validator
@@ -8,7 +8,7 @@ from .custom_errors import ApiKeyError, NoApiKeyError
 
 
 class Config(BaseModel, extra=Extra.ignore):
-    api_key: List[str] = None
+    api_key: Union[str, List[str]] = None
     history_save_path: Path = Path("data/ChatHistory").absolute()
     preset_path: Path = Path("data/Presets").absolute()
     openai_proxy: str = None
