@@ -28,6 +28,7 @@
 - [x] 插件自带猫娘等预设模板（prompt）构建会话
     - 1.常规GPT模板
     - 2.猫娘模板
+    - 3.猫娘Plus模板
 - [x] 以群组为单位管理会话，支持私聊
     - 可以设置是否允许私聊触发插件
     - 群组中可以存在多个会话，会话之间相互独立（私聊暂时只支持同时存在一个会话）
@@ -36,7 +37,7 @@
 
 ### 配置
 
-- [x] 支持同时使用多个 openai_api_key，失效时自动切换
+- [x] 支持同时使用多个 openai_api_key，负载均衡，并且失效时自动切换
 - [x] 支持不同模型，如`gpt-3.5-turbo-0301`，默认为`gpt-3.5-turbo`
   ，具体可参考[官方文档](https://platform.openai.com/docs/guides/chat/instructing-chat-models)
 - [x] 可设置使用gpt的理智值(temperature)，介于0~2之间，较高值如`0.8`会使会话更加随机，较低值如`0.2`
@@ -66,7 +67,14 @@
 中的内容，否则会取配置文件中写入的值，所以如果不清楚具体含义的可以直接不在配置文件中写入这些配置。
 
 唯一 **必填** 的配置项只有 `api_key` ,如果你只有一个api_key，可以直接填写字符串，例如 `api_key="sk-xxx..."`
-，如果你有多条key，可以填写字符串列表，例如 `api_key=["sk-xxx...", "sk-yyy...", "sk-zzz..."]`
+，如果你有多条key，可以填写字符串列表，例如 `api_key=["sk-xxx...", "sk-yyy...", "sk-zzz..."]`<br>
+**注意：如果填写多条api key，配置文件中 `api_key = ["sk-xxx...", "sk-yyy...", "sk-zzz..."]` 最后一个key后面不能接逗号！**<br>
+**如果想要换行 在列表前后加上单引号！**<br>
+```
+api_key = '["sk-xxx...", 
+ "sk-yyy...", "sk-zzz...",
+ "sk-jjj..."]'
+```
 
 另外，如果在国内的话，代理虽然不是 **必填** 项，但是没有的话是无法连接到 openai
 的，所以算是必填项，正向代理使用 `openai_proxy`
@@ -112,35 +120,35 @@
 格式如下:
 
 ```
-api_key=["sk-xxx...", "sk-yyy...", ...]
-model_name="gpt-3.5-turbo" #默认为gpt-3.5-turbo，具体可参考官方文档
-temperature=0.5 #理智值，介于0~2之间
+api_key=["sk-xxx...", "sk-yyy...", ...] # 最后一个key后面不要加逗号，另外如果要多行则列表前后加单引号，参考上方介绍
+model_name="gpt-3.5-turbo" # 默认为gpt-3.5-turbo，具体可参考官方文档
+temperature=0.5 # 理智值，介于0~2之间
 openai_proxy="x.x.x.x:xxxxx"
-chat_memory_max=10 #填入大于2的数字
-history_max=100 #填入大于2的数字
+chat_memory_max=10 # 填入大于2的数字
+history_max=100 # 填入大于2的数字
 history_save_path="E:/Kawaii" # 填入你的历史会话保存文件夹路径，如果修改最好填绝对路径，不过一般不需要修改，可以直接删掉这一行
-openai_api_base = "" #cf workers，空字符串或留空都将不使用
+openai_api_base = "" # cf workers，空字符串或留空都将不使用
 preset_path="E:/Kitty" # 填入你的历史会话保存文件夹路径，如果修改最好填绝对路径，不过一般不需要修改，可以直接删掉这一行
 allow_private=true # 是否允许私聊触发插件
 change_chat_to="Chat" # 具体效果见上方介绍，如果不需要修改也可以直接删掉这一行
 customize_prefix="/" # 具体效果见上方介绍，如果不需要修改也可以直接删掉这一行
-customize_talk_cmd="talk" 具体效果见上方介绍，如果不需要修改也可以直接删掉这一行
-auto_create_preset_info=false 具体效果见上方介绍，如果不需要修改也可以直接删掉这一行
-max_tokens=1024 具体效果见上方介绍，如果不需要修改也可以直接删掉这一行
+customize_talk_cmd="talk" # 具体效果见上方介绍，如果不需要修改也可以直接删掉这一行
+auto_create_preset_info=false # 具体效果见上方介绍，如果不需要修改也可以直接删掉这一行
+max_tokens=1024 # 具体效果见上方介绍，如果不需要修改也可以直接删掉这一行
 ```
 
 ## 基础命令
 
 `/chat` 获取命令菜单  
 `/chat new`  根据预制模板prompt创建一个新的会话  
-`/chat new` (自定义prompt) (不需要括号，直接跟你的prompt就好)利用后面跟随的prompt作为基础prompt来创建一个新的会话  
+`/chat new (自定义prompt)` (不需要括号，直接跟你的prompt就好)利用后面跟随的prompt作为基础prompt来创建一个新的会话  
 `/chat list` 获取当前群所有存在的会话的序号及创建时间  
-`/chat list <@user>` 获取当前群查看@的用户创建的对话
+`/chat list <@user>` 获取当前群查看@的用户创建的会话
 `/chat join <id>` 加入list中序号为<id>的会话(不需要尖括号，直接跟id就行)  
 `/chat del` 删除当前所在会话
 `/chat del <id>` 删除list中序号为<id>的会话(不需要尖括号，直接跟id就行)  
 `/chat json` 利用历史会话json来回到一个会话,输入该命令后会提示你在下一个消息中输入json  
-`/chat dump` 导出当前对话json字符串格式的上下文信息
+`/chat dump` 导出当前会话json字符串格式的上下文信息
 `/chat cp <id>` 以id会话为模板进行复制新建加入
 `/chat who` 查看当前会话信息
 `/talk` (会话内容) 在当前会话中进行会话(同样不需要括号，后面直接接你要说的话就行)
@@ -151,12 +159,12 @@ max_tokens=1024 具体效果见上方介绍，如果不需要修改也可以直�
 |       `/chat new`       |       群员        |  否  | 私聊/群聊 |          根据预制模板prompt创建并加入一个新的会话          |
 | `/chat new <自定义prompt>` |       群员        |  否  | 私聊/群聊 |    利用<自定义prompt>作为基础prompt来创建并加入一个新的会话    |
 |      `/chat list`       |       群员        |  否  | 私聊/群聊 |           获取当前群所有存在的会话的序号及创建时间            |
-|  `/chat list <@user>`   |       群员        |  否  | 私聊/群聊 |             获取当前群查看@的用户创建的对话              |
+|  `/chat list <@user>`   |       群员        |  否  | 私聊/群聊 |             获取当前群查看@的用户创建的会话              |
 |    `/chat join <id>`    |       群员        |  否  | 私聊/群聊 |     加入list中序号为<id>的会话(不需要尖括号，直接跟id就行)     |
 |       `/chat del`       | 主人/群主/管理员/会话创建人 |  否  | 私聊/群聊 |                 删除当前所在会话                  |
 |    `/chat del <id>`     | 主人/群主/管理员/会话创建人 |  否  | 私聊/群聊 |     删除list中序号为<id>的会话(不需要尖括号，直接跟id就行)     |
 |      `/chat json`       |       群员        |  否  | 私聊/群聊 | 利用历史会话json来回到一个会话,输入该命令后会提示你在下一个消息中输入json |
-|      `/chat dump`       |       群员        |  否  | 私聊/群聊 |           导出当前对话json字符串格式的上下文信息           |
+|      `/chat dump`       |       群员        |  否  | 私聊/群聊 |           导出当前会话json字符串格式的上下文信息           |
 |     `/chat cp <id>`     |       群员        |  否  | 私聊/群聊 |             以id会话为模板进行复制新建加入              |
 |       `/chat who`       |       群员        |  否  | 私聊/群聊 |                 查看当前会话信息                  |
 |     `/talk <会话内容>`      |       群员        |  否  | 私聊/群聊 |  <会话内容> 在当前会话中进行会话(同样不需要括号，后面直接接你要说的话就行)  |
@@ -167,7 +175,7 @@ max_tokens=1024 具体效果见上方介绍，如果不需要修改也可以直�
 
 ![image](https://user-images.githubusercontent.com/33772816/223602899-77ce2c3b-5d0f-40c2-8183-65e8447d9bec.png)
 
-### 与bot进行会话
+### 与bot进行对话
 
 ![image](https://user-images.githubusercontent.com/33772816/223603028-4aeda385-6d29-4c67-b7b3-5295e7d6976b.png)
 
