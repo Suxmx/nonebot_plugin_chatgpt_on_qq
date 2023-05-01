@@ -55,7 +55,7 @@ class SessionContainer:
                 continue
             self.sessions.append(session)
             group = self.get_group_usage(session.group)
-            for user in session._users:
+            for user in session.users:
                 group[user] = session
 
     def get_group_usage(self, gid: Union[str, int]) -> Dict[user_id, "Session"]:
@@ -122,6 +122,10 @@ class Session:
             self.basic_len = len(self.history)
         if is_save:
             self.save()
+
+    @property
+    def users(self) -> Set[int]:
+        return self._users
 
     def add_user(self, user: int) -> None:
         self._users.add(user)
