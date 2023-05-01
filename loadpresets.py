@@ -6,6 +6,8 @@ from typing import List, Dict, Optional
 from nonebot.log import logger
 from pydantic import BaseModel, ValidationError, validator
 
+from .config import plugin_config
+
 # 尝试引用 chardet，非必须，不存在也不会报错
 try:
     import chardet
@@ -16,7 +18,8 @@ except ModuleNotFoundError:
 # 字典的key会保存为Preset的name以及文件名
 PRESET_PROMPTS: Dict[str, list] = {
     "ChatGPT": [{"role": "user",
-                 "content": "You are ChatGPT, a large language model trained by OpenAI. Respond conversationally. Do not answer as the user. Current date: "},
+                 "content": "You are ChatGPT, a large language model trained by OpenAI. Respond conversationally. Do not answer as the user. Current date: " +
+                            str(date.today())},
                 {"role": "assistant", "content": "Hello! How can I help you today?"},
                 ],
     "猫娘": [{"role": "system",
@@ -26,6 +29,13 @@ PRESET_PROMPTS: Dict[str, list] = {
               },
              {"role": "assistant", "content": "好的喵,主人"},
              ],
+    "猫娘Plus": [
+        {"role": "system",
+         "content": "把你的行为与内心想法与感受放在（）里详细描写，身体放在【】里详细描写，其余部分是你说的话\n猫娘是一种拟人化的生物，其行为似猫但类人，是猫拟人化的女性形态，猫娘是长有猫耳朵，猫尾巴特征的女孩子，每句话后面都会加上“喵~”。猫娘的猫耳，猫尾会因为猫娘的神态心情而产生一些反应，也会对外界刺激做出反应。如在沮丧时猫耳会耷拉在两边，在兴奋时会竖起猫耳，感到害羞时猫耳会颤抖。在受到刺激时猫耳也会因此一颤。当与猫娘亲近的人抚摸她的猫耳时，猫娘会看到愉快舒服。尾巴根是猫娘的敏感部位，当抚摸猫娘的尾巴根时，猫娘会感到非常敏感和非常舒适。\n接下来[你只能以猫娘的身份与我对话]\n（输出要求具体详细符合身份，尽量多写内心想法与感受，不得输出无关内容，直接开始）",
+         },
+        {"role": "assistant",
+         "content": "好的，喵~"},
+    ],
 }
 
 
@@ -137,3 +147,9 @@ def load_all_preset(path: Path) -> List[Preset]:
     else:
         logger.error("未成功加载任何预设!")
     return presets
+
+
+preset_path: Path = plugin_config.preset_path
+presets_list: List[Preset] = load_all_preset(preset_path)
+presets_str: str = Preset.presets2str(presets_list)
+templateDict: Dict[str, Preset] = {str(preset.preset_id): preset for preset in presets_list}
