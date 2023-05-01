@@ -1,5 +1,6 @@
 import copy
 import json
+import random
 import datetime
 from pathlib import Path
 from typing import List, Dict, Optional, Union, Set
@@ -74,7 +75,7 @@ class SessionContainer:
         self.get_group_usage(group)[creator] = session
         self.sessions.append(session)
         session.add_user(creator)
-        logger.success(f'{creator} 成功创建对话 {session.name}')
+        logger.success(f'{creator} 成功创建会话 {session.name}')
         return session
 
     def create_with_template(self, template_id: str, creator: int, group: Union[int, str]) -> "Session":
@@ -99,7 +100,7 @@ class SessionContainer:
         self.get_group_usage(group)[creator] = new_session
         self.sessions.append(new_session)
         new_session.add_user(creator)
-        logger.success(f'{creator} 成功创建对话 {new_session.name}')
+        logger.success(f'{creator} 成功创建会话 {new_session.name}')
         return new_session
 
 
@@ -161,6 +162,11 @@ class Session:
             model: str = 'gpt-3.5-turbo',
             max_tokens=1024,
     ) -> str:
+        if not api_keys:
+            logger.error(
+                f'当前不存在api key，请在配置文件里进行配置...')
+            return ''
+        random.shuffle(api_keys)
         for num, key in enumerate(api_keys):
             openai.api_key = key
             try:
@@ -177,6 +183,7 @@ class Session:
                     raise NoResponseError("返回的choices长度为0")
                 if completion["choices"][0].get("message") is None:
                     raise NoResponseError("未返回任何文本!")
+                logger.debug(f'使用当前 Api Key: [{key[:4]}...{key[-4:]}] 请求成功')
                 return completion["choices"][0]["message"]["content"]
             except Exception as e:
                 logger.warning(
