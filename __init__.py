@@ -99,7 +99,7 @@ async def _(bot: Bot, event: MessageEvent, info: Dict[str, Any] = RegexDict()):
     session: Session = group_usage[userId]
     name: str = info.get('name', '').strip()
     if session.creator == userId or perm_check:
-        session.name = name[:32]
+        session.rename(name[:32])
         await ReName.finish(f'当前会话已命名为 {session.name}')
     logger.info(f'重命名群 {groupId} 会话 {session.name} 失败：权限不足')
     await Delete.finish("您不是该会话的创建者或管理员!")

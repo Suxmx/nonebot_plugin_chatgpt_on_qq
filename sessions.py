@@ -124,6 +124,11 @@ class Session:
         if is_save:
             self.save()
 
+    def rename(self, name: str) -> None:
+        self.file_path.unlink(missing_ok=True)
+        self.name = name
+        self.save()
+
     @property
     def users(self) -> Set[int]:
         return self._users
