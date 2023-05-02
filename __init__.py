@@ -1,4 +1,5 @@
 import json
+import re
 from datetime import datetime
 from json import JSONDecodeError
 from typing import Dict, List, Any
@@ -41,7 +42,7 @@ __plugin_meta__ = PluginMetadata(
     extra={
         "License": "BSD License",
         "Author": "颜曦",
-        "version": "1.4.1",
+        "version": "1.4.2",
     },
 )
 
@@ -68,20 +69,40 @@ async def _allow_private_checker(event: MessageEvent) -> bool:
 
 ALLOW_PRIVATE = Permission(_allow_private_checker)
 
-Chat = on_regex(rf"^{prefix_str}{talk_cmd_str}\s+(?P<content>.+)", permission=ALLOW_PRIVATE)  # 聊天
+Chat = on_regex(rf"^{prefix_str}{talk_cmd_str}\s+(?P<content>.+)", flags=re.S, permission=ALLOW_PRIVATE)  # 聊天
 CallMenu = on_regex(rf"^{pattern_str}$", permission=ALLOW_PRIVATE)  # 呼出菜单
 ShowList = on_regex(rf"^{pattern_str}\s+list\s*$", permission=ALLOW_PRIVATE)  # 展示群聊天列表
 Join = on_regex(rf"^{pattern_str}\s+join\s+(?P<id>\d+)", permission=ALLOW_PRIVATE)  # 加入会话
 Delete = on_regex(rf"^{pattern_str}\s+del\s+(?P<id>\d+)", permission=ALLOW_PRIVATE)  # 删除会话
 DelSelf = on_regex(rf"^{pattern_str}\s+del\s*$", permission=ALLOW_PRIVATE)  # 删除当前会话
 Dump = on_regex(rf"^{pattern_str}\s+dump$", permission=ALLOW_PRIVATE)  # 导出json
-CreateConversationWithPrompt = on_regex(rf"^{pattern_str}\s+new\s+(?P<prompt>.+)$",
+CreateConversationWithPrompt = on_regex(rf"^{pattern_str}\s+new\s+(?P<prompt>.+)$", flags=re.S,
                                         permission=ALLOW_PRIVATE)  # 利用自定义prompt创建会话
 CreateConversationWithTemplate = on_regex(rf"^{pattern_str}\s+new$", permission=ALLOW_PRIVATE)  # 利用模板创建会话
 CreateConversationWithJson = on_regex(rf"^{pattern_str}\s+json$", permission=ALLOW_PRIVATE)  # 利用json创建会话
 ChatCopy = on_regex(rf"^{pattern_str}\s+cp\s+(?P<id>\d+)$", permission=ALLOW_PRIVATE)
 ChatWho = on_regex(rf'^{pattern_str}\s+who$', permission=ALLOW_PRIVATE)
 ChatUserList = on_regex(rf"^{pattern_str}\s+list\s*\S+$", permission=ALLOW_PRIVATE)  # 展示群聊天列表
+ReName = on_regex(rf"^{pattern_str}\s+rename\s+(?P<name>.+)$", permission=ALLOW_PRIVATE)  # 重命名当前会话
+
+
+@ReName.handle()
+async def _(bot: Bot, event: MessageEvent, info: Dict[str, Any] = RegexDict()):
+    if isinstance(event, PrivateMessageEvent):
+        await ReName.finish('私聊中只存在一个会话，无法命名，如果想导出json字符串请使用 /chat dump')
+    userId: int = int(event.get_user_id())
+    groupId: str = get_group_id(event)
+    group_usage: Dict[int, Session] = session_container.get_group_usage(groupId)
+    if userId not in group_usage:
+        await ReName.finish('请先加入一个会话，再进行重命名')
+    perm_check = (await SUPERUSER(bot, event)) or (await GROUP_ADMIN(bot, event)) or (await GROUP_OWNER(bot, event))
+    session: Session = group_usage[userId]
+    name: str = info.get('name', '').strip()
+    if session.creator == userId or perm_check:
+        session.name = name[:32]
+        await ReName.finish(f'当前会话已命名为 {session.name}')
+    logger.info(f'重命名群 {groupId} 会话 {session.name} 失败：权限不足')
+    await Delete.finish("您不是该会话的创建者或管理员!")
 
 
 @ChatUserList.handle()
@@ -96,7 +117,7 @@ async def _(event: MessageEvent, message: Message = EventMessage()):
     session_list: List[Session] = [s for s in session_container.sessions if s.group == groupId and s.creator == userId]
     msg: str = f"在群中创建会话{len(session_list)}条：\n"
     for index, session in enumerate(session_list):
-        msg += f" 名称:{session.name} " \
+        msg += f" 名称:{session.name[:10]} " \
                f"创建者:{session.creator} " \
                f"时间:{datetime.fromtimestamp(session.creation_time)}\n"
     await ChatUserList.finish(MessageSegment.at(userId) + msg)
@@ -113,7 +134,7 @@ async def _(event: MessageEvent):
         await ChatWho.finish('当前没有加入任何会话，请加入或创建一个会话')
     session: Session = group_usage[userId]
     msg = f'当前所在会话信息:\n' \
-          f"名称:{session.name}\n" \
+          f"名称:{session.name[:10]}\n" \
           f"创建者:{session.creator}\n" \
           f"时间:{datetime.fromtimestamp(session.creation_time)}\n" \
           f"可以使用 /chat dump 导出json字符串格式的上下文信息"
