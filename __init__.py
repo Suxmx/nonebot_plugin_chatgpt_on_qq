@@ -19,20 +19,30 @@ from .custom_errors import NeedCreatSession
 from .sessions import session_container, Session, get_group_id
 
 __usage__: str = (
-        "太长不看版:\n"
-        + "先用/chat new命令,选择模板来创建会话,随后/talk 内容 来会话\n\n"
-        + "/chat :获取菜单\n"
-        + "/chat new :利用模板创建一个会话并加入\n"
-        + "/talk <内容> :在当前的会话进行聊天\n"
-        + "/chat list :获得当前已创建的会话列表\n"
-        + "/chat list <@user> :查看@的用户创建的会话\n"
-        + "/chat join 序号(指/chat list中的序号) :参与list中的某个会话\n"
-        + "/chat new (prompt) :自定义prompt来创建一个新的会话\n"
-        + "/chat del :删除当前所在会话\n"
-        + "/chat del 序号(指/chat list中的序号) :删除list中的某个会话\n"
-        + "/chat dump :导出当前会话json字符串格式的上下文信息\n"
-        + "/chat cp <chat id> :复制会话并新建\n"
-        + "/chat who :查看当前会话\n"
+    "指令表：\n"
+    "    /chat help 获取指令帮助菜单\n"
+    "    /talk <会话内容> 在当前会话中进行会话(同样不需要括号，后面直接接你要说的话就行)\n"
+    ">> 增\n"
+    "    /chat new  根据预制模板prompt创建并加入一个新的会话\n"
+    "    /chat new <自定义prompt> 根据自定义prompt创建并加入一个新的会话\n"
+    "    /chat json 根据历史会话json来创建一个会话，输入该命令后会提示你在下一个消息中输入json\n"
+    "    /chat cp 根据当前会话创建并加入一个新的会话\n"
+    "    /chat cp <id> 根据会话<id>为模板进行复制新建加入（id为/chat list中的序号）\n"
+    ">> 删\n"
+    "    /chat del 删除当前所在会话\n"
+    "    /chat del <id> 删除序号为<id>的会话（id为/chat list中的序号）\n"
+    "    /chat clear 清空本群全部会话\n"
+    "    /chat clear <@user> 删除@用户创建的会话\n"
+    ">> 改\n"
+    "    /chat join <id> 加入会话（id为/chat list中的序号）\n"
+    "    /chat rename <name> 重命名当前会话\n"
+    ">> 查\n"
+    "    /chat who 查看当前会话信息\n"
+    "    /chat list 获取当前群所有存在的会话的序号及创建时间\n"
+    "    /chat list <@user> 获取当前群查看@的用户创建的会话\n"
+    "    /chat prompt 查看当前会话的prompt\n"
+    "    /chat dump 导出当前会话json字符串格式的上下文信息，可以用于/chat json导入\n"
+
 )
 __plugin_meta__ = PluginMetadata(
     name="多功能ChatGPT插件",
@@ -42,7 +52,7 @@ __plugin_meta__ = PluginMetadata(
     extra={
         "License": "BSD License",
         "Author": "颜曦",
-        "version": "1.4.2",
+        "version": "1.5.0",
     },
 )
 
@@ -70,7 +80,7 @@ async def _allow_private_checker(event: MessageEvent) -> bool:
 ALLOW_PRIVATE = Permission(_allow_private_checker)
 
 Chat = on_regex(rf"^{prefix_str}{talk_cmd_str}\s+(?P<content>.+)", flags=re.S, permission=ALLOW_PRIVATE)  # 聊天
-CallMenu = on_regex(rf"^{pattern_str}$", permission=ALLOW_PRIVATE)  # 呼出菜单
+CallMenu = on_regex(rf"^{pattern_str}\s+help$", permission=ALLOW_PRIVATE)  # 呼出菜单
 ShowList = on_regex(rf"^{pattern_str}\s+list\s*$", permission=ALLOW_PRIVATE)  # 展示群聊天列表
 Join = on_regex(rf"^{pattern_str}\s+join\s+(?P<id>\d+)", permission=ALLOW_PRIVATE)  # 加入会话
 Delete = on_regex(rf"^{pattern_str}\s+del\s+(?P<id>\d+)", permission=ALLOW_PRIVATE)  # 删除会话
@@ -81,9 +91,85 @@ CreateConversationWithPrompt = on_regex(rf"^{pattern_str}\s+new\s+(?P<prompt>.+)
 CreateConversationWithTemplate = on_regex(rf"^{pattern_str}\s+new$", permission=ALLOW_PRIVATE)  # 利用模板创建会话
 CreateConversationWithJson = on_regex(rf"^{pattern_str}\s+json$", permission=ALLOW_PRIVATE)  # 利用json创建会话
 ChatCopy = on_regex(rf"^{pattern_str}\s+cp\s+(?P<id>\d+)$", permission=ALLOW_PRIVATE)
+ChatCP = on_regex(rf"^{pattern_str}\s+cp$", permission=ALLOW_PRIVATE)
 ChatWho = on_regex(rf'^{pattern_str}\s+who$', permission=ALLOW_PRIVATE)
 ChatUserList = on_regex(rf"^{pattern_str}\s+list\s*\S+$", permission=ALLOW_PRIVATE)  # 展示群聊天列表
 ReName = on_regex(rf"^{pattern_str}\s+rename\s+(?P<name>.+)$", permission=ALLOW_PRIVATE)  # 重命名当前会话
+ChatPrompt = on_regex(rf"^{pattern_str}\s+prompt$", permission=ALLOW_PRIVATE)
+ChatClear = on_regex(rf"{pattern_str}\s+clear$", permission=ALLOW_PRIVATE)
+ChatClearAt = on_regex(rf"{pattern_str}\s+clear\s*\S+$", permission=ALLOW_PRIVATE)
+
+
+@ChatClear.handle()
+async def _(bot: Bot, event: MessageEvent):
+    userId: int = int(event.get_user_id())
+    groupId: str = get_group_id(event)
+    group_usage: Dict[int, Session] = session_container.get_group_usage(groupId)
+    if isinstance(event, PrivateMessageEvent):  # 私聊
+        session: Session = group_usage.pop(userId)
+        if not session:
+            await ChatClear.finish("当前不存在会话")
+        session_container.sessions.remove(session)
+        session.delete_file()
+        logger.success(f'成功删除群 {groupId} 会话 {session.name}')
+        await ChatClear.finish("已删除当前会话")
+
+    perm_check = (await SUPERUSER(bot, event)) or (await GROUP_ADMIN(bot, event)) or (await GROUP_OWNER(bot, event))
+    if not perm_check:
+        await ChatClear.finish("只有群主或管理员才能清空本群全部会话!")
+    session_list: List[Session] = session_container.get_group_sessions(groupId)
+    num = len(session_list)
+    for session in session_list:
+        await session_container.delete_session(session, groupId)
+    await ChatClear.finish(f"成功删除本群全部共{num}条会话")
+
+
+@ChatClearAt.handle()
+async def _(bot: Bot, event: MessageEvent, message: Message = EventMessage()):
+    if isinstance(event, PrivateMessageEvent):
+        await ChatClearAt.finish()
+    segments: List[MessageSegment] = [s for s in message if s.type == 'at' and s.data.get("qq", "all") != 'all']
+    if not segments:
+        await ChatClearAt.finish()
+    perm_check = (await SUPERUSER(bot, event)) or (await GROUP_ADMIN(bot, event)) or (await GROUP_OWNER(bot, event))
+    senderId: int = int(event.get_user_id())
+    userId: int = int(segments[0].data.get("qq", ""))
+    groupId: str = get_group_id(event)
+    if userId != senderId and not perm_check:
+        await ChatClearAt.finish("您不是该会话的创建者或管理员!")
+    session_list: List[Session] = [s for s in session_container.sessions if s.group == groupId and s.creator == userId]
+    num = len(session_list)
+    if num == 0:
+        await ChatClearAt.finish(f"本群用户 {userId} 还没有创建过会话哦")
+    for session in session_list:
+        await session_container.delete_session(session, groupId)
+    await ChatClearAt.finish(f"成功删除本群用户 {userId} 创建的全部会话共{num}条")
+
+
+@ChatCP.handle()
+async def _(event: MessageEvent):
+    if isinstance(event, PrivateMessageEvent):
+        await ChatCP.finish('私聊中无法复制会话，如果想导出json字符串请使用 /chat dump')
+    userId: int = int(event.get_user_id())
+    groupId: str = get_group_id(event)
+    group_usage: Dict[int, Session] = session_container.get_group_usage(groupId)
+    if userId not in group_usage:
+        await ChatCP.finish('请先加入一个会话，再进行复制当前会话 或者使用 /chat cp <id> 进行复制')
+    session: Session = group_usage[userId]
+    group_usage[userId].del_user(userId)
+    new_session: Session = session_container.create_with_session(session, userId, groupId)
+    await ChatCP.finish(f"创建并加入会话 '{new_session.name}' 成功!", at_sender=True)
+
+
+@ChatPrompt.handle()
+async def _(event: MessageEvent):
+    userId: int = int(event.get_user_id())
+    groupId: str = get_group_id(event)
+    group_usage: Dict[int, Session] = session_container.get_group_usage(groupId)
+    if userId not in group_usage:
+        await ChatPrompt.finish('请先加入一个会话，再进行重命名')
+    session: Session = group_usage[userId]
+    await ChatPrompt.finish(f'会话：{session.name}\nprompt：{session.prompt}')
 
 
 @ReName.handle()
@@ -102,7 +188,7 @@ async def _(bot: Bot, event: MessageEvent, info: Dict[str, Any] = RegexDict()):
         session.rename(name[:32])
         await ReName.finish(f'当前会话已命名为 {session.name}')
     logger.info(f'重命名群 {groupId} 会话 {session.name} 失败：权限不足')
-    await Delete.finish("您不是该会话的创建者或管理员!")
+    await ReName.finish("您不是该会话的创建者或管理员!")
 
 
 @ChatUserList.handle()
@@ -151,14 +237,14 @@ async def _(event: MessageEvent, info: Dict[str, Any] = RegexDict()):
     group_sessions: List[Session] = session_container.get_group_sessions(groupId)
     group_usage: Dict[int, Session] = session_container.get_group_usage(groupId)
     if not group_sessions:
-        await Join.finish("本群尚未创建过会话!请用/chat new命令来创建会话!", at_sender=True)
+        await ChatCopy.finish("本群尚未创建过会话!请用/chat new命令来创建会话!", at_sender=True)
     if session_id < 1 or session_id > len(group_sessions):
-        await Join.finish("序号超出!", at_sender=True)
+        await ChatCopy.finish("序号超出!", at_sender=True)
     session: Session = group_sessions[session_id - 1]
     if userId in group_usage:
         group_usage[userId].del_user(userId)
     new_session: Session = session_container.create_with_session(session, userId, groupId)
-    await Join.finish(f"创建并加入会话 '{new_session.name}' 成功!", at_sender=True)
+    await ChatCopy.finish(f"创建并加入会话 '{new_session.name}' 成功!", at_sender=True)
 
 
 @Dump.handle()
@@ -227,23 +313,18 @@ async def _(bot: Bot, event: MessageEvent):
     group_usage: Dict[int, Session] = session_container.get_group_usage(groupId)
     session: Session = group_usage.pop(userId)
     if not session:
-        await Delete.finish("当前不存在会话")
+        await DelSelf.finish("当前不存在会话")
     if isinstance(event, PrivateMessageEvent):  # 私聊
         session_container.sessions.remove(session)
         session.delete_file()
         logger.success(f'成功删除群 {groupId} 会话 {session.name}')
-        await Delete.finish("已删除当前会话")
+        await DelSelf.finish("已删除当前会话")
     perm_check = (await SUPERUSER(bot, event)) or (await GROUP_ADMIN(bot, event)) or (await GROUP_OWNER(bot, event))
     if session.creator == userId or perm_check:
-        users = set(uid for uid, s in group_usage.items() if s is session)
-        for user in users:
-            group_usage.pop(user)
-        session_container.sessions.remove(session)
-        session.delete_file()
-        logger.success(f'成功删除群 {groupId} 会话 {session.name}')
-        await Delete.finish("删除成功!")
+        await session_container.delete_session(session, groupId)
+        await DelSelf.finish("删除成功!")
     logger.info(f'删除群 {groupId} 会话 {session.name} 失败：权限不足')
-    await Delete.finish("您不是该会话的创建者或管理员!")
+    await DelSelf.finish("您不是该会话的创建者或管理员!")
 
 
 @Delete.handle()
@@ -263,18 +344,13 @@ async def _(bot: Bot, event: MessageEvent, info: Dict[str, Any] = RegexDict()):
     # 群聊
     group_sessions: List[Session] = session_container.get_group_sessions(groupId)
     if not group_sessions:
-        await Join.finish("本群尚未创建过会话!", at_sender=True)
+        await Delete.finish("本群尚未创建过会话!", at_sender=True)
     if session_id < 1 or session_id > len(group_sessions):
-        await Join.finish("序号超出!", at_sender=True)
+        await Delete.finish("序号超出!", at_sender=True)
     perm_check = (await SUPERUSER(bot, event)) or (await GROUP_ADMIN(bot, event)) or (await GROUP_OWNER(bot, event))
     session: Session = group_sessions[session_id - 1]
     if session.creator == userId or perm_check:
-        users = set(uid for uid, s in group_usage.items() if s is session)
-        for user in users:
-            group_usage.pop(user)
-        session_container.sessions.remove(session)
-        session.delete_file()
-        logger.success(f'成功删除群 {groupId} 会话 {session.name}')
+        await session_container.delete_session(session, groupId)
         await Delete.finish("删除成功!")
     else:
         logger.info(f'删除群 {groupId} 会话 {session.name} 失败：权限不足')

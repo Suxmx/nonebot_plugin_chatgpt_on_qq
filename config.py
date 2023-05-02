@@ -23,6 +23,7 @@ class Config(BaseModel, extra=Extra.ignore):
     auto_create_preset_info: bool = True
     customize_prefix: str = '/'
     customize_talk_cmd: str = 'talk'
+    timeout: int = 10
 
     @validator('api_key')
     def api_key_validator(cls, v) -> List[str]:

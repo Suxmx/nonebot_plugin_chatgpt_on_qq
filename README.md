@@ -111,6 +111,7 @@ api_key = '["sk-xxx...",
 |       history_max       |  否  | int           |        100         |                        设置保存的最大历史聊天记录长度，填入大于2的数字                         |
 |    history_save_path    |  否  | str           | "data/ChatHistory" |                               设置会话记录保存路径                                |
 |     openai_api_base     |  否  | str           |        None        |                                  反向代理                                   |
+|         timeout         |  否  | int           |         10         |                                 超时时间（秒）                                 |
 |       preset_path       |  否  | str           |   "data/Presets"   |                              填入自定义预设文件夹路径                               |
 |      allow_private      |  否  | bool          |        true        |                              插件是否支持私聊，默认开启                              |
 |     change_chat_to      |  否  | str           |        None        |           因为电脑端的qq在输入/chat xxx时候经常被转换成表情，所以支持自定义指令前缀替换"chat"            |
@@ -130,6 +131,7 @@ chat_memory_max=10 # 填入大于2的数字
 history_max=100 # 填入大于2的数字
 history_save_path="E:/Kawaii" # 填入你的历史会话保存文件夹路径，如果修改最好填绝对路径，不过一般不需要修改，可以直接删掉这一行
 openai_api_base = "" # cf workers，空字符串或留空都将不使用
+timeout=10
 preset_path="E:/Kitty" # 填入你的历史会话保存文件夹路径，如果修改最好填绝对路径，不过一般不需要修改，可以直接删掉这一行
 allow_private=true # 是否允许私聊触发插件
 change_chat_to="Chat" # 具体效果见上方介绍，如果不需要修改也可以直接删掉这一行
@@ -141,37 +143,57 @@ max_tokens=1024 # 具体效果见上方介绍，如果不需要修改也可以�
 
 ## 基础命令
 
-`/chat` 获取命令菜单  
-`/chat new`  根据预制模板prompt创建一个新的会话  
-`/chat new (自定义prompt)` (不需要括号，直接跟你的prompt就好)利用后面跟随的prompt作为基础prompt来创建一个新的会话  
-`/chat list` 获取当前群所有存在的会话的序号及创建时间  
-`/chat list <@user>` 获取当前群查看@的用户创建的会话
-`/chat join <id>` 加入list中序号为<id>的会话(不需要尖括号，直接跟id就行)  
-`/chat del` 删除当前所在会话
-`/chat del <id>` 删除list中序号为<id>的会话(不需要尖括号，直接跟id就行)  
-`/chat json` 利用历史会话json来回到一个会话,输入该命令后会提示你在下一个消息中输入json  
-`/chat dump` 导出当前会话json字符串格式的上下文信息
-`/chat cp <id>` 以id会话为模板进行复制新建加入
-`/chat who` 查看当前会话信息
-`/chat rename <name>` 重命名当前会话
-`/talk` (会话内容) 在当前会话中进行会话(同样不需要括号，后面直接接你要说的话就行)
+`/chat help` 获取指令帮助菜单<br>
+`/talk <会话内容>` 在当前会话中进行会话(同样不需要括号，后面直接接你要说的话就行)<br>
+
+### 增
+
+`/chat new`  根据预制模板prompt创建并加入一个新的会话<br>
+`/chat new <自定义prompt>` 根据自定义prompt创建并加入一个新的会话<br>
+`/chat json` 根据历史会话json来创建一个会话，输入该命令后会提示你在下一个消息中输入json<br>
+`/chat cp` 根据当前会话创建并加入一个新的会话<br>
+`/chat cp <id>` 根据会话<id>为模板进行复制新建加入（id为`/chat list`中的序号）<br>
+
+### 删
+
+`/chat del` 删除当前所在会话<br>
+`/chat del <id>` 删除序号为<id>的会话（id为`/chat list`中的序号）<br>
+`/chat clear` 清空本群全部会话<br>
+`/chat clear <@user>` 删除@用户创建的会话<br>
+
+### 改
+
+`/chat join <id>` 加入会话（id为`/chat list`中的序号）<br>
+`/chat rename <name>` 重命名当前会话<br>
+
+### 查
+
+`/chat who` 查看当前会话信息<br>
+`/chat list` 获取当前群所有存在的会话的序号及创建时间<br>
+`/chat list <@user>` 获取当前群查看@的用户创建的会话<br>
+`/chat prompt` 查看当前会话的prompt<br>
+`/chat dump` 导出当前会话json字符串格式的上下文信息，可以用于`/chat json`导入<br>
 
 |           指令            |       权限        | 需要@ |  范围   |                    说明                     |
 |:-----------------------:|:---------------:|:---:|:-----:|:-----------------------------------------:|
-|         `/chat`         |       群员        |  否  | 私聊/群聊 |                  获取命令菜单                   |
+|      `/chat help`       |       群员        |  否  | 私聊/群聊 |                 获取指令帮助菜单                  |
+|     `/talk <会话内容>`      |       群员        |  否  | 私聊/群聊 |     在当前会话中进行会话(同样不需要括号，后面直接接你要说的话就行)      |
 |       `/chat new`       |       群员        |  否  | 私聊/群聊 |          根据预制模板prompt创建并加入一个新的会话          |
-| `/chat new <自定义prompt>` |       群员        |  否  | 私聊/群聊 |    利用<自定义prompt>作为基础prompt来创建并加入一个新的会话    |
-|      `/chat list`       |       群员        |  否  | 私聊/群聊 |           获取当前群所有存在的会话的序号及创建时间            |
-|  `/chat list <@user>`   |       群员        |  否  | 私聊/群聊 |             获取当前群查看@的用户创建的会话              |
-|    `/chat join <id>`    |       群员        |  否  | 私聊/群聊 |     加入list中序号为<id>的会话(不需要尖括号，直接跟id就行)     |
+| `/chat new <自定义prompt>` |       群员        |  否  | 私聊/群聊 |          根据自定义prompt创建并加入一个新的会话           |
+|      `/chat json`       |       群员        |  否  | 私聊/群聊 | 根据历史会话json来创建一个会话，输入该命令后会提示你在下一个消息中输入json |
+|       `/chat cp`        |       群员        |  否  |  群聊   |             根据当前会话创建并加入一个新的会话             |
+|     `/chat cp <id>`     |       群员        |  否  |  群聊   | 根据会话<id>为模板进行复制新建加入（id为`/chat list`中的序号）  |
 |       `/chat del`       | 主人/群主/管理员/会话创建人 |  否  | 私聊/群聊 |                 删除当前所在会话                  |
-|    `/chat del <id>`     | 主人/群主/管理员/会话创建人 |  否  | 私聊/群聊 |     删除list中序号为<id>的会话(不需要尖括号，直接跟id就行)     |
-|      `/chat json`       |       群员        |  否  | 私聊/群聊 | 利用历史会话json来回到一个会话,输入该命令后会提示你在下一个消息中输入json |
-|      `/chat dump`       |       群员        |  否  | 私聊/群聊 |           导出当前会话json字符串格式的上下文信息           |
-|     `/chat cp <id>`     |       群员        |  否  | 私聊/群聊 |             以id会话为模板进行复制新建加入              |
-|       `/chat who`       |       群员        |  否  | 私聊/群聊 |                 查看当前会话信息                  |
+|    `/chat del <id>`     | 主人/群主/管理员/会话创建人 |  否  | 私聊/群聊 |     删除序号为<id>的会话（id为`/chat list`中的序号）     |
+|      `/chat clear`      |    主人/群主/管理员    |  否  | 私聊/群聊 |                 清空本群全部会话                  |
+|  `/chat clear <@user>`  | 主人/群主/管理员/会话创建人 |  否  |  群聊   |                删除@用户创建的会话                 |
+|    `/chat join <id>`    |       群员        |  否  |  群聊   |         加入会话（id为`/chat list`中的序号）         |
 |  `/chat rename <name>`  | 主人/群主/管理员/会话创建人 |  否  | 私聊/群聊 |                  重命名当前会话                  |
-|     `/talk <会话内容>`      |       群员        |  否  | 私聊/群聊 |  <会话内容> 在当前会话中进行会话(同样不需要括号，后面直接接你要说的话就行)  |
+|       `/chat who`       |       群员        |  否  |  群聊   |                 查看当前会话信息                  |
+|      `/chat list`       |       群员        |  否  |  群聊   |           获取当前群所有存在的会话的序号及创建时间            |
+|  `/chat list <@user>`   |       群员        |  否  |  群聊   |             获取当前群查看@的用户创建的会话              |
+|     `/chat prompt`      |       群员        |  否  | 私聊/群聊 |               查看当前会话的prompt               |
+|      `/chat dump`       |       群员        |  否  | 私聊/群聊 | 导出当前会话json字符串格式的上下文信息，可以用于`/chat json`导入  |
 
 ## 使用效果预览(已过时)
 

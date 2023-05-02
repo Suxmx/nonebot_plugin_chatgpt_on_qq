@@ -46,6 +46,15 @@ class SessionContainer:
             dir_path.mkdir(parents=True)
         self.load()
 
+    async def delete_session(self, session: "Session", groupId: str) -> None:
+        group_usage: Dict[int, Session] = self.get_group_usage(groupId)
+        users = set(uid for uid, s in group_usage.items() if s is session)
+        for user in users:
+            group_usage.pop(user)
+        self.sessions.remove(session)
+        session.delete_file()
+        logger.success(f'成功删除群 {groupId} 会话 {session.name}')
+
     def get_group_sessions(self, group_id: Union[str, int]) -> List["Session"]:
         return [s for s in self.sessions if s.group == str(group_id)]
 
@@ -124,6 +133,10 @@ class Session:
         if is_save:
             self.save()
 
+    @property
+    def prompt(self) -> str:
+        return self.history[0].get('content', '').strip()
+
     def rename(self, name: str) -> None:
         self.file_path.unlink(missing_ok=True)
         self.name = name
@@ -180,6 +193,7 @@ class Session:
                     messages=self.chat_memory,
                     temperature=temperature,
                     max_tokens=max_tokens,
+                    timeout=timeout,
                 )
                 self.update_from_completion(completion)
                 if completion.get("choices") is None:
@@ -255,6 +269,7 @@ class Session:
 
 chat_memory_max = plugin_config.chat_memory_max if plugin_config.chat_memory_max > 2 else 2
 history_max = plugin_config.history_max if plugin_config.history_max > chat_memory_max else 100
+timeout = int(plugin_config.timeout) if plugin_config.timeout and plugin_config.timeout > 0 else 10
 
 session_container: SessionContainer = SessionContainer(
     dir_path=plugin_config.history_save_path,
