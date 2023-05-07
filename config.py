@@ -9,6 +9,7 @@ from .custom_errors import ApiKeyError, NoApiKeyError
 
 class Config(BaseModel, extra=Extra.ignore):
     api_key: Union[str, List[str]] = None
+    key_load_balancing: bool = False
     history_save_path: Path = Path("data/ChatHistory").absolute()
     preset_path: Path = Path("data/Presets").absolute()
     openai_proxy: str = None
