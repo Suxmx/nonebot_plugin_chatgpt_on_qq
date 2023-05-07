@@ -37,7 +37,7 @@
 
 ### 配置
 
-- [x] 支持同时使用多个 openai_api_key，负载均衡，并且失效时自动切换
+- [x] 支持同时使用多个 openai_api_key，负载均衡（可选择开启），并且失效时自动切换
 - [x] 支持不同模型，如`gpt-3.5-turbo-0301`，默认为`gpt-3.5-turbo`
   ，具体可参考[官方文档](https://platform.openai.com/docs/guides/chat/instructing-chat-models)
 - [x] 可设置使用gpt的理智值(temperature)，介于0~2之间，较高值如`0.8`会使会话更加随机，较低值如`0.2`
@@ -49,7 +49,7 @@
 
 - [x] 支持自定义 `chat系` 指令前缀，可在配置项 `change_chat_to` 中设置
     - 例如配置 `change_chat_to="Chat"` 则 `/Chat list` 也能触发 `/chat list` 指令，具体见指令列表
-- [x] 支持自定义本插件公共指令前缀 `"\"`，可在配置项 `customize_prefix` 中设置
+- [x] 支持自定义本插件公共指令前缀 `"/"`，可在配置项 `customize_prefix` 中设置
     - 例如配置 `customize_prefix=""` 置空 则 `chat cp` 也能触发 `/chat cp` 指令，具体见指令列表
     - 本插件公共指令前缀对`chat系` 指令及 `talk` 指令均有效果
 - [x] 支持自定义与chatGPT会话指令 `"talk"`，防止因为常用前缀为空时误触发，可在配置项 `customize_talk_cmd` 中设置
@@ -82,6 +82,12 @@ api_key = '["sk-xxx...",
 的，所以算是必填项，正向代理使用 `openai_proxy`
 ，例如 `openai_proxy="127.0.0.1:1080"` （前提是你有代理，这只是个例子）
 
+`key_load_balancing` 选项可以选择是否开启apikey的负载均衡，可以简单理解为是否每次从所有key中随机选一个进行使用，默认为否（即一直使用同一个
+key 直到失效再切换下一个）<br>
+因为据说同一个 ip 不能同时调用多个apikey，尤其是短时间调用量很大的情况（不过个人没有测试过），所以默认为关闭负载均衡。如果想开启可能代理软件也需要多
+ip 负载均衡或者自己做ip池（大概…<br>
+所以自己决定要不要开启吧~
+
 `history_max` 和 `history_save_path` 是会话的全部历史记录，保存在本地；`chat_memory_max`
 是会话与gpt交互时记忆的上下文最大聊天记录长度，实际上只是全部历史记录中的一部分，可以理解为他的记忆；
 
@@ -93,10 +99,10 @@ api_key = '["sk-xxx...",
 则去掉这个前缀
 
 `change_chat_to` 可以修改 `chat系` 指令 中的 "chat" 为自定义字符串，因为电脑版qq /chat xxx
-会被自动转换成表情，所以支持自定义。比如 `change_chat_to="Chat"` 就可以让 `\Chat list` 触发 `\chat list` 指令
+会被自动转换成表情，所以支持自定义。比如 `change_chat_to="Chat"` 就可以让 `/Chat list` 触发 `/chat list` 指令
 
 `customize_talk_cmd` 可以修改 `talk` 指令 中 "talk" 为自定义字符，因为 如果将公共前缀置空的话，"talk"
-字符串比较常见可能容易引发误触，可以修改成其他的 比如 `customize_talk_cmd="gpt"` 可以让 `\gpt` 触发 `\talk`
+字符串比较常见可能容易引发误触，可以修改成其他的 比如 `customize_talk_cmd="gpt"` 可以让 `/gpt` 触发 `/talk`
 
 `auto_create_preset_info` 可以设置是否提示根据模板自动创建会话的信息，这条提示信息具体在用户不在任何会话时直接使用 `talk`
 指令时触发，如果嫌太过频繁可以关闭。但只能关闭掉自动创建提示，主动创建会话仍旧有提醒。
@@ -104,6 +110,7 @@ api_key = '["sk-xxx...",
 |           配置项           | 必填  | 类型            |        默认值         |                                   说明                                    |
 |:-----------------------:|:---:|---------------|:------------------:|:-----------------------------------------------------------------------:|
 |         api_key         |  是  | str/List[str] |                    |      填入你的api_key,类似"sk-xxx..."，支持多个key，以字符串列表形式填入，某个key失效后会自动切换下一个      |
+|   key_load_balancing    |  否  | bool          |       False        |           是否启用apikey负载均衡，即每次使用不同的key访问，默认为关，即一直使用一个key直到失效再切换           |
 |       model_name        |  否  | str           |  "gpt-3.5-turbo"   |                             模型名称，具体可参考官方文档                              |
 |       temperature       |  否  | float         |        0.5         | 设置使用gpt的理智值(temperature)，介于0~2之间，较高值如`0.8`会使会话更加随机，较低值如`0.2`会使会话更加集中和确定 |
 |      openai_proxy       |  否  | str           |        None        |                          正向HTTP代理 (HTTP PROXY)                          |
@@ -124,6 +131,7 @@ api_key = '["sk-xxx...",
 
 ```
 api_key=["sk-xxx...", "sk-yyy...", ...] # 最后一个key后面不要加逗号，另外如果要多行则列表前后加单引号，参考上方介绍
+key_load_balancing=false
 model_name="gpt-3.5-turbo" # 默认为gpt-3.5-turbo，具体可参考官方文档
 temperature=0.5 # 理智值，介于0~2之间
 openai_proxy="x.x.x.x:xxxxx"

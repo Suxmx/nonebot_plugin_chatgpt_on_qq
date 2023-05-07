@@ -184,9 +184,11 @@ class Session:
             logger.error(
                 f'当前不存在api key，请在配置文件里进行配置...')
             return ''
-        random.shuffle(api_keys)
+        if key_load_balancing:
+            random.shuffle(api_keys)
         for num, key in enumerate(api_keys):
             openai.api_key = key
+            logger.debug(f'当前使用 Api Key [{key[:4]}...{key[-4:]}]')
             try:
                 completion: dict = await openai.ChatCompletion.acreate(
                     model=model,
@@ -270,6 +272,7 @@ class Session:
 chat_memory_max = plugin_config.chat_memory_max if plugin_config.chat_memory_max > 2 else 2
 history_max = plugin_config.history_max if plugin_config.history_max > chat_memory_max else 100
 timeout = int(plugin_config.timeout) if plugin_config.timeout and plugin_config.timeout > 0 else 10
+key_load_balancing: bool = plugin_config.key_load_balancing
 
 session_container: SessionContainer = SessionContainer(
     dir_path=plugin_config.history_save_path,
