@@ -2,11 +2,14 @@ import json
 import re
 from datetime import datetime
 from json import JSONDecodeError
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Type
 
+from nonebot.adapters.onebot.v11.utils import unescape
+from nonebot.adapters.onebot.v11.permission import GROUP
 from nonebot.adapters.onebot.v11 import (Bot, MessageEvent,
                                          GroupMessageEvent, PrivateMessageEvent,
                                          GROUP_ADMIN, GROUP_OWNER, MessageSegment, Message)
+from nonebot.internal.matcher import Matcher
 from nonebot.log import logger
 from nonebot.plugin import on_regex
 from nonebot.params import ArgPlainText, RegexDict, EventMessage
@@ -21,6 +24,9 @@ from .sessions import session_container, Session, get_group_id
 __usage__: str = (
     "指令表：\n"
     "    /chat help 获取指令帮助菜单\n"
+    "    /chat auth 获取当前群会话管理权限状态\n"
+    "    /chat auth on 设置当前群仅管理员可以管理会话\n"
+    "    /chat auth off 设置当前群所有人均可管理会话\n"
     "    /talk <会话内容> 在当前会话中进行会话(同样不需要括号，后面直接接你要说的话就行)\n"
     ">> 增\n"
     "    /chat new  根据预制模板prompt创建并加入一个新的会话\n"
@@ -52,7 +58,7 @@ __plugin_meta__ = PluginMetadata(
     extra={
         "License": "BSD License",
         "Author": "颜曦",
-        "version": "1.5.1",
+        "version": "1.6.0",
     },
 )
 
@@ -98,30 +104,63 @@ ReName = on_regex(rf"^{pattern_str}\s+rename\s+(?P<name>.+)$", permission=ALLOW_
 ChatPrompt = on_regex(rf"^{pattern_str}\s+prompt$", permission=ALLOW_PRIVATE)
 ChatClear = on_regex(rf"{pattern_str}\s+clear$", permission=ALLOW_PRIVATE)
 ChatClearAt = on_regex(rf"{pattern_str}\s+clear\s*\S+$", permission=ALLOW_PRIVATE)
+SetAuthOn = on_regex(rf'^{pattern_str}\s+auth on$', permission=GROUP)
+SetAuthOff = on_regex(rf'^{pattern_str}\s+auth off$', permission=GROUP)
+ShowAuth = on_regex(rf'^{pattern_str}\s+auth$', permission=GROUP)
+
+
+@ShowAuth.handle()
+async def _(event: GroupMessageEvent):
+    group_id: str = get_group_id(event)
+    if session_container.get_group_auth(group_id):
+        await ShowAuth.finish("当前仅有管理员有权限管理会话")
+    await ShowAuth.finish("当前所有人均有权限管理会话")
+
+
+async def auth_check(matcher: Type[Matcher], bot: Bot, event: MessageEvent, group_id: str) -> None:
+    if isinstance(event, PrivateMessageEvent):
+        return
+    if session_container.get_group_auth(group_id) and not (await admin_check(bot, event)):
+        await matcher.finish('该群仅有管理员可以管理会话')
+
+
+async def admin_check(bot: Bot, event: MessageEvent) -> bool:
+    if not isinstance(event, GroupMessageEvent):
+        return True
+    return (await SUPERUSER(bot, event)) or (await GROUP_ADMIN(bot, event)) or (await GROUP_OWNER(bot, event))
+
+
+@SetAuthOff.handle()
+async def _(bot: Bot, event: GroupMessageEvent):
+    group_id: str = get_group_id(event)
+    perm_check = await admin_check(bot, event)
+    if not perm_check:
+        await SetAuthOff.finish("只有群主或管理员才能设置权限管理")
+    session_container.set_group_auth(group_id, False)
+    await SetAuthOff.finish("设置成功，当前所有人均有权限管理会话")
+
+
+@SetAuthOn.handle()
+async def _(bot: Bot, event: GroupMessageEvent):
+    group_id: str = get_group_id(event)
+    perm_check = await admin_check(bot, event)
+    if not perm_check:
+        await SetAuthOn.finish("只有群主或管理员才能设置权限管理")
+    session_container.set_group_auth(group_id, True)
+    await SetAuthOn.finish("设置成功，当前仅有管理员有权限管理会话")
 
 
 @ChatClear.handle()
 async def _(bot: Bot, event: MessageEvent):
-    userId: int = int(event.get_user_id())
-    groupId: str = get_group_id(event)
-    group_usage: Dict[int, Session] = session_container.get_group_usage(groupId)
-    if isinstance(event, PrivateMessageEvent):  # 私聊
-        session: Session = group_usage.pop(userId)
-        if not session:
-            await ChatClear.finish("当前不存在会话")
-        session_container.sessions.remove(session)
-        session.delete_file()
-        logger.success(f'成功删除群 {groupId} 会话 {session.name}')
-        await ChatClear.finish("已删除当前会话")
-
-    perm_check = (await SUPERUSER(bot, event)) or (await GROUP_ADMIN(bot, event)) or (await GROUP_OWNER(bot, event))
+    group_id: str = get_group_id(event)
+    perm_check = await admin_check(bot, event)
     if not perm_check:
         await ChatClear.finish("只有群主或管理员才能清空本群全部会话!")
-    session_list: List[Session] = session_container.get_group_sessions(groupId)
+    session_list: List[Session] = session_container.get_group_sessions(group_id)
     num = len(session_list)
     for session in session_list:
-        await session_container.delete_session(session, groupId)
-    await ChatClear.finish(f"成功删除本群全部共{num}条会话")
+        await session_container.delete_session(session, group_id)
+    await ChatClear.finish(f"成功删除全部共{num}条会话")
 
 
 @ChatClearAt.handle()
@@ -131,94 +170,90 @@ async def _(bot: Bot, event: MessageEvent, message: Message = EventMessage()):
     segments: List[MessageSegment] = [s for s in message if s.type == 'at' and s.data.get("qq", "all") != 'all']
     if not segments:
         await ChatClearAt.finish()
-    perm_check = (await SUPERUSER(bot, event)) or (await GROUP_ADMIN(bot, event)) or (await GROUP_OWNER(bot, event))
-    senderId: int = int(event.get_user_id())
-    userId: int = int(segments[0].data.get("qq", ""))
-    groupId: str = get_group_id(event)
-    if userId != senderId and not perm_check:
+    perm_check = await admin_check(bot, event)
+    sender_id: int = int(event.get_user_id())
+    user_id: int = int(segments[0].data.get("qq", ""))
+    group_id: str = get_group_id(event)
+    if user_id != sender_id and not perm_check:
         await ChatClearAt.finish("您不是该会话的创建者或管理员!")
-    session_list: List[Session] = [s for s in session_container.sessions if s.group == groupId and s.creator == userId]
+    session_list: List[Session] = [s for s in session_container.sessions if s.group == group_id and s.creator == user_id]
     num = len(session_list)
     if num == 0:
-        await ChatClearAt.finish(f"本群用户 {userId} 还没有创建过会话哦")
+        await ChatClearAt.finish(f"本群用户 {user_id} 还没有创建过会话哦")
     for session in session_list:
-        await session_container.delete_session(session, groupId)
-    await ChatClearAt.finish(f"成功删除本群用户 {userId} 创建的全部会话共{num}条")
+        await session_container.delete_session(session, group_id)
+    await ChatClearAt.finish(f"成功删除本群用户 {user_id} 创建的全部会话共{num}条")
 
 
 @ChatCP.handle()
-async def _(event: MessageEvent):
-    if isinstance(event, PrivateMessageEvent):
-        await ChatCP.finish('私聊中无法复制会话，如果想导出json字符串请使用 /chat dump')
-    userId: int = int(event.get_user_id())
-    groupId: str = get_group_id(event)
-    group_usage: Dict[int, Session] = session_container.get_group_usage(groupId)
-    if userId not in group_usage:
+async def _(bot: Bot, event: MessageEvent):
+    user_id: int = int(event.get_user_id())
+    group_id: str = get_group_id(event)
+    await auth_check(ChatCP, bot, event, group_id)
+    group_usage: Dict[int, Session] = session_container.get_group_usage(group_id)
+    if user_id not in group_usage:
         await ChatCP.finish('请先加入一个会话，再进行复制当前会话 或者使用 /chat cp <id> 进行复制')
-    session: Session = group_usage[userId]
-    group_usage[userId].del_user(userId)
-    new_session: Session = session_container.create_with_session(session, userId, groupId)
+    session: Session = group_usage[user_id]
+    group_usage[user_id].del_user(user_id)
+    new_session: Session = session_container.create_with_session(session, user_id, group_id)
     await ChatCP.finish(f"创建并加入会话 '{new_session.name}' 成功!", at_sender=True)
 
 
 @ChatPrompt.handle()
 async def _(event: MessageEvent):
-    userId: int = int(event.get_user_id())
-    groupId: str = get_group_id(event)
-    group_usage: Dict[int, Session] = session_container.get_group_usage(groupId)
-    if userId not in group_usage:
+    user_id: int = int(event.get_user_id())
+    group_id: str = get_group_id(event)
+    group_usage: Dict[int, Session] = session_container.get_group_usage(group_id)
+    if user_id not in group_usage:
         await ChatPrompt.finish('请先加入一个会话，再进行重命名')
-    session: Session = group_usage[userId]
+    session: Session = group_usage[user_id]
     await ChatPrompt.finish(f'会话：{session.name}\nprompt：{session.prompt}')
 
 
 @ReName.handle()
 async def _(bot: Bot, event: MessageEvent, info: Dict[str, Any] = RegexDict()):
-    if isinstance(event, PrivateMessageEvent):
-        await ReName.finish('私聊中只存在一个会话，无法命名，如果想导出json字符串请使用 /chat dump')
-    userId: int = int(event.get_user_id())
-    groupId: str = get_group_id(event)
-    group_usage: Dict[int, Session] = session_container.get_group_usage(groupId)
-    if userId not in group_usage:
+    user_id: int = int(event.get_user_id())
+    group_id: str = get_group_id(event)
+    await auth_check(ReName, bot, event, group_id)
+    group_usage: Dict[int, Session] = session_container.get_group_usage(group_id)
+    if user_id not in group_usage:
         await ReName.finish('请先加入一个会话，再进行重命名')
-    perm_check = (await SUPERUSER(bot, event)) or (await GROUP_ADMIN(bot, event)) or (await GROUP_OWNER(bot, event))
-    session: Session = group_usage[userId]
-    name: str = info.get('name', '').strip()
-    if session.creator == userId or perm_check:
+    perm_check = await admin_check(bot, event)
+    session: Session = group_usage[user_id]
+    name: str = unescape(info.get('name', '').strip())
+    if session.creator == user_id or perm_check:
         session.rename(name[:32])
         await ReName.finish(f'当前会话已命名为 {session.name}')
-    logger.info(f'重命名群 {groupId} 会话 {session.name} 失败：权限不足')
+    logger.info(f'重命名群 {group_id} 会话 {session.name} 失败：权限不足')
     await ReName.finish("您不是该会话的创建者或管理员!")
 
 
 @ChatUserList.handle()
 async def _(event: MessageEvent, message: Message = EventMessage()):
     if isinstance(event, PrivateMessageEvent):
-        await ChatUserList.finish('私聊只有一个会话，如果想导出json字符串请使用 /chat dump')
+        await ChatUserList.finish()
     segments: List[MessageSegment] = [s for s in message if s.type == 'at' and s.data.get("qq", "all") != 'all']
     if not segments:
         await ChatUserList.finish()
-    userId: int = int(segments[0].data.get("qq", ""))
-    groupId: str = get_group_id(event)
-    session_list: List[Session] = [s for s in session_container.sessions if s.group == groupId and s.creator == userId]
+    user_id: int = int(segments[0].data.get("qq", ""))
+    group_id: str = get_group_id(event)
+    session_list: List[Session] = [s for s in session_container.sessions if s.group == group_id and s.creator == user_id]
     msg: str = f"在群中创建会话{len(session_list)}条：\n"
     for index, session in enumerate(session_list):
         msg += f" 名称:{session.name[:10]} " \
                f"创建者:{session.creator} " \
                f"时间:{datetime.fromtimestamp(session.creation_time)}\n"
-    await ChatUserList.finish(MessageSegment.at(userId) + msg)
+    await ChatUserList.finish(MessageSegment.at(user_id) + msg)
 
 
 @ChatWho.handle()
 async def _(event: MessageEvent):
-    if isinstance(event, PrivateMessageEvent):
-        await ChatWho.finish('私聊只有一个会话，如果想导出json字符串请使用 /chat dump')
-    userId: int = int(event.get_user_id())
-    groupId: str = get_group_id(event)
-    group_usage: Dict[int, Session] = session_container.get_group_usage(groupId)
-    if userId not in group_usage:
+    user_id: int = int(event.get_user_id())
+    group_id: str = get_group_id(event)
+    group_usage: Dict[int, Session] = session_container.get_group_usage(group_id)
+    if user_id not in group_usage:
         await ChatWho.finish('当前没有加入任何会话，请加入或创建一个会话')
-    session: Session = group_usage[userId]
+    session: Session = group_usage[user_id]
     msg = f'当前所在会话信息:\n' \
           f"名称:{session.name[:10]}\n" \
           f"创建者:{session.creator}\n" \
@@ -228,31 +263,30 @@ async def _(event: MessageEvent):
 
 
 @ChatCopy.handle()
-async def _(event: MessageEvent, info: Dict[str, Any] = RegexDict()):
-    if isinstance(event, PrivateMessageEvent):
-        await ChatCopy.finish('私聊中无法复制会话，如果想导出json字符串请使用 /chat dump')
+async def _(bot: Bot, event: MessageEvent, info: Dict[str, Any] = RegexDict()):
     session_id = int(info.get('id', '').strip())
-    userId: int = int(event.get_user_id())
-    groupId: str = get_group_id(event)
-    group_sessions: List[Session] = session_container.get_group_sessions(groupId)
-    group_usage: Dict[int, Session] = session_container.get_group_usage(groupId)
+    user_id: int = int(event.get_user_id())
+    group_id: str = get_group_id(event)
+    await auth_check(ChatCopy, bot, event, group_id)
+    group_sessions: List[Session] = session_container.get_group_sessions(group_id)
+    group_usage: Dict[int, Session] = session_container.get_group_usage(group_id)
     if not group_sessions:
         await ChatCopy.finish("本群尚未创建过会话!请用/chat new命令来创建会话!", at_sender=True)
     if session_id < 1 or session_id > len(group_sessions):
         await ChatCopy.finish("序号超出!", at_sender=True)
     session: Session = group_sessions[session_id - 1]
-    if userId in group_usage:
-        group_usage[userId].del_user(userId)
-    new_session: Session = session_container.create_with_session(session, userId, groupId)
+    if user_id in group_usage:
+        group_usage[user_id].del_user(user_id)
+    new_session: Session = session_container.create_with_session(session, user_id, group_id)
     await ChatCopy.finish(f"创建并加入会话 '{new_session.name}' 成功!", at_sender=True)
 
 
 @Dump.handle()
 async def _(event: MessageEvent):
-    userId: int = int(event.get_user_id())
-    groupId: str = get_group_id(event)
+    user_id: int = int(event.get_user_id())
+    group_id: str = get_group_id(event)
     try:
-        session: Session = session_container.get_user_usage(groupId, userId)
+        session: Session = session_container.get_user_usage(group_id, user_id)
         await Dump.finish(session.dump2json_str())
     except NeedCreatSession:
         await Dump.finish('请先加入一个会话')
@@ -260,19 +294,19 @@ async def _(event: MessageEvent):
 
 @Chat.handle()
 async def _(event: MessageEvent, info: Dict[str, Any] = RegexDict()):
-    content: str = info.get('content', '').strip()
+    content: str = unescape(info.get('content', '').strip())
     if not content:
         await Chat.finish("输入不能为空!", at_sender=True)
-    userId: int = int(event.get_user_id())
-    groupId: str = get_group_id(event)
-    group_usage: Dict[int, Session] = session_container.get_group_usage(groupId)
-    if userId not in group_usage:  # 若用户没有加入任何会话则先创建会话
-        session: Session = session_container.create_with_template('1', userId, groupId)
-        logger.info(f"{userId} 自动创建并加入会话 '{session.name}'")
+    user_id: int = int(event.get_user_id())
+    group_id: str = get_group_id(event)
+    group_usage: Dict[int, Session] = session_container.get_group_usage(group_id)
+    if user_id not in group_usage:  # 若用户没有加入任何会话则先创建会话
+        session: Session = session_container.create_with_template('1', user_id, group_id)
+        logger.info(f"{user_id} 自动创建并加入会话 '{session.name}'")
         if auto_create_preset_info:
             await Chat.send(f"自动创建并加入会话 '{session.name}' 成功", at_sender=True)
     else:
-        session: Session = group_usage[userId]
+        session: Session = group_usage[user_id]
     answer: str = await session.ask_with_content(api_keys, content, 'user', temperature, model, max_tokens)
     if answer:
         await Chat.finish(answer)
@@ -281,22 +315,20 @@ async def _(event: MessageEvent, info: Dict[str, Any] = RegexDict()):
 
 @Join.handle()
 async def _(event: MessageEvent, info: Dict[str, Any] = RegexDict()):
-    if isinstance(event, PrivateMessageEvent):
-        await Join.finish("私聊中无法加入会话!")
     session_id: int = int(info.get('id', '').strip())
-    groupId: str = get_group_id(event)
-    group_sessions: List[Session] = session_container.get_group_sessions(groupId)
-    group_usage: Dict[int, Session] = session_container.get_group_usage(groupId)
+    group_id: str = get_group_id(event)
+    group_sessions: List[Session] = session_container.get_group_sessions(group_id)
+    group_usage: Dict[int, Session] = session_container.get_group_usage(group_id)
     if not group_sessions:
         await Join.finish("本群尚未创建过会话!请用/chat new命令来创建会话!", at_sender=True)
     if session_id < 1 or session_id > len(group_sessions):
         await Join.finish("序号超出!", at_sender=True)
-    userId: int = int(event.get_user_id())
+    user_id: int = int(event.get_user_id())
     session: Session = group_sessions[session_id - 1]
-    if userId in group_usage:
-        group_usage[userId].del_user(userId)
-    session.add_user(userId)
-    group_usage[userId] = session
+    if user_id in group_usage:
+        group_usage[user_id].del_user(user_id)
+    session.add_user(user_id)
+    group_usage[user_id] = session
     await Join.finish(f"加入会话 {session_id}:{session.name} 成功!", at_sender=True)
 
 
@@ -308,52 +340,39 @@ async def _():
 
 @DelSelf.handle()
 async def _(bot: Bot, event: MessageEvent):
-    userId: int = int(event.get_user_id())
-    groupId: str = get_group_id(event)
-    group_usage: Dict[int, Session] = session_container.get_group_usage(groupId)
-    session: Session = group_usage.pop(userId)
+    user_id: int = int(event.get_user_id())
+    group_id: str = get_group_id(event)
+    await auth_check(DelSelf, bot, event, group_id)
+    group_usage: Dict[int, Session] = session_container.get_group_usage(group_id)
+    session: Session = group_usage.pop(user_id, None)
     if not session:
         await DelSelf.finish("当前不存在会话")
-    if isinstance(event, PrivateMessageEvent):  # 私聊
-        session_container.sessions.remove(session)
-        session.delete_file()
-        logger.success(f'成功删除群 {groupId} 会话 {session.name}')
-        await DelSelf.finish("已删除当前会话")
-    perm_check = (await SUPERUSER(bot, event)) or (await GROUP_ADMIN(bot, event)) or (await GROUP_OWNER(bot, event))
-    if session.creator == userId or perm_check:
-        await session_container.delete_session(session, groupId)
+    perm_check = await admin_check(bot, event)
+    if session.creator == user_id or perm_check:
+        await session_container.delete_session(session, group_id)
         await DelSelf.finish("删除成功!")
-    logger.info(f'删除群 {groupId} 会话 {session.name} 失败：权限不足')
+    logger.info(f'删除群 {group_id} 会话 {session.name} 失败：权限不足')
     await DelSelf.finish("您不是该会话的创建者或管理员!")
 
 
 @Delete.handle()
 async def _(bot: Bot, event: MessageEvent, info: Dict[str, Any] = RegexDict()):
     session_id = int(info.get('id', '').strip())
-    userId: int = int(event.get_user_id())
-    groupId: str = get_group_id(event)
-    group_usage: Dict[int, Session] = session_container.get_group_usage(groupId)
-    if isinstance(event, PrivateMessageEvent):  # 私聊
-        session: Session = group_usage.pop(userId)
-        if not session:
-            await Delete.finish("当前不存在会话")
-        session_container.sessions.remove(session)
-        session.delete_file()
-        logger.success(f'成功删除群 {groupId} 会话 {session.name}')
-        await Delete.finish("已删除当前会话")
-    # 群聊
-    group_sessions: List[Session] = session_container.get_group_sessions(groupId)
+    user_id: int = int(event.get_user_id())
+    group_id: str = get_group_id(event)
+    await auth_check(Delete, bot, event, group_id)
+    group_sessions: List[Session] = session_container.get_group_sessions(group_id)
     if not group_sessions:
-        await Delete.finish("本群尚未创建过会话!", at_sender=True)
+        await Delete.finish("当前不存在会话")
     if session_id < 1 or session_id > len(group_sessions):
         await Delete.finish("序号超出!", at_sender=True)
-    perm_check = (await SUPERUSER(bot, event)) or (await GROUP_ADMIN(bot, event)) or (await GROUP_OWNER(bot, event))
     session: Session = group_sessions[session_id - 1]
-    if session.creator == userId or perm_check:
-        await session_container.delete_session(session, groupId)
+    perm_check = await admin_check(bot, event)
+    if session.creator == user_id or perm_check:
+        await session_container.delete_session(session, group_id)
         await Delete.finish("删除成功!")
     else:
-        logger.info(f'删除群 {groupId} 会话 {session.name} 失败：权限不足')
+        logger.info(f'删除群 {group_id} 会话 {session.name} 失败：权限不足')
         await Delete.finish("您不是该会话的创建者或管理员!")
 
 
@@ -362,10 +381,8 @@ async def _(bot: Bot, event: MessageEvent, info: Dict[str, Any] = RegexDict()):
 
 @ShowList.handle()
 async def _(event: MessageEvent):
-    if isinstance(event, PrivateMessageEvent):
-        await ShowList.finish("私聊中无法展示列表(最多只有一个会话)，如果想导出json字符串请使用 /chat dump")
-    groupId: str = get_group_id(event)
-    session_list: List[Session] = session_container.get_group_sessions(groupId)
+    group_id: str = get_group_id(event)
+    session_list: List[Session] = session_container.get_group_sessions(group_id)
     msg: str = f"本群全部会话共{len(session_list)}条：\n"
     for index, session in enumerate(session_list):
         msg += f"{index + 1}. {session.name} " \
@@ -378,19 +395,19 @@ async def _(event: MessageEvent):
 
 
 @CreateConversationWithPrompt.handle()
-async def _(event: MessageEvent, info: Dict[str, Any] = RegexDict()):
-    customPrompt: str = info.get('prompt', '').strip()
-    userId: int = int(event.get_user_id())
-    groupId: str = get_group_id(event)
-    if isinstance(event, PrivateMessageEvent):  # 当在私聊中时
-        if userId in session_container.get_group_usage(groupId):
-            await CreateConversationWithPrompt.finish("已存在一个会话,请先删除")
-    session: Session = session_container.create_with_str(customPrompt, userId, groupId, customPrompt[:5])
+async def _(bot: Bot, event: MessageEvent, info: Dict[str, Any] = RegexDict()):
+    custom_prompt: str = unescape(info.get('prompt', '').strip())
+    user_id: int = int(event.get_user_id())
+    group_id: str = get_group_id(event)
+    await auth_check(CreateConversationWithPrompt, bot, event, group_id)
+    session: Session = session_container.create_with_str(custom_prompt, user_id, group_id, custom_prompt[:5])
     await CreateConversationWithPrompt.finish(f"成功创建并加入会话 '{session.name}' ", at_sender=True)
 
 
 @CreateConversationWithTemplate.handle()
-async def CreateConversation():
+async def CreateConversation(bot: Bot, event: MessageEvent):
+    group_id: str = get_group_id(event)
+    await auth_check(CreateConversationWithTemplate, bot, event, group_id)
     await CreateConversationWithTemplate.send(presets_str, at_sender=True)
 
 
@@ -399,20 +416,19 @@ async def CreateConversation():
 
 @CreateConversationWithTemplate.got(key="template")
 async def Create(event: MessageEvent, template_id: str = ArgPlainText("template")):
-    userId: int = int(event.get_user_id())
-    groupId: str = get_group_id(event)
-    if isinstance(event, PrivateMessageEvent):  # 当在私聊中时
-        if userId in session_container.get_group_usage(groupId):
-            await CreateConversationWithPrompt.finish("已存在一个会话，请先删除该会话!")
+    user_id: int = int(event.get_user_id())
+    group_id: str = get_group_id(event)
     if not template_id.isdigit():
-        await CreateConversationWithTemplate.reject("输入ID无效!")
-    session: Session = session_container.create_with_template(template_id, userId, groupId)
+        await CreateConversationWithTemplate.finish("输入ID无效！")
+    session: Session = session_container.create_with_template(template_id, user_id, group_id)
     await CreateConversationWithTemplate.send(f"使用模板 '{template_id}' 创建并加入会话 '{session.name}' 成功!",
                                               at_sender=True)
 
 
 @CreateConversationWithJson.handle()
-async def CreateConversation():
+async def CreateConversation(bot: Bot, event: MessageEvent):
+    group_id: str = get_group_id(event)
+    await auth_check(CreateConversationWithTemplate, bot, event, group_id)
     pass
 
 
@@ -422,11 +438,11 @@ async def GetJson(event: MessageEvent, json_str: str = ArgPlainText("jsonStr")):
         chat_log = json.loads(json_str)
     except JSONDecodeError:
         logger.error("json字符串错误!")
-        await CreateConversationWithJson.reject("Json错误!")
+        await CreateConversationWithJson.finish("Json错误！")
     if not chat_log[0].get("role"):
-        await CreateConversationWithJson.reject("Json错误!")
-    userId: int = int(event.get_user_id())
-    groupId: str = get_group_id(event)
-    session: Session = session_container.create_with_chat_log(chat_log, userId, groupId,
+        await CreateConversationWithJson.finish("Json错误！")
+    user_id: int = int(event.get_user_id())
+    group_id: str = get_group_id(event)
+    session: Session = session_container.create_with_chat_log(chat_log, user_id, group_id,
                                                               name=chat_log[0].get('content', '')[:5])
     await CreateConversationWithJson.send(f"创建并加入会话 '{session}' 成功!", at_sender=True)
