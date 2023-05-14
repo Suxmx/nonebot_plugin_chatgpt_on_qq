@@ -25,6 +25,7 @@ class Config(BaseModel, extra=Extra.ignore):
     customize_prefix: str = '/'
     customize_talk_cmd: str = 'talk'
     timeout: int = 10
+    default_only_admin: bool = False
 
     @validator('api_key')
     def api_key_validator(cls, v) -> List[str]:

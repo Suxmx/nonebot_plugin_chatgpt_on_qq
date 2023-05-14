@@ -13,8 +13,8 @@ from .config import plugin_config
 from .loadpresets import templateDict
 from .custom_errors import NeedCreatSession, NoResponseError
 
-user_id = int
-group_id = str
+type_user_id = int
+type_group_id = str
 PRIVATE_GROUP: str = "Private"
 
 proxy: Optional[str] = plugin_config.openai_proxy
@@ -31,44 +31,78 @@ def get_group_id(event: MessageEvent) -> str:
     if isinstance(event, GroupMessageEvent):  # 当在群聊中时
         return str(event.group_id)
     else:  # 当在私聊中时
-        return PRIVATE_GROUP
+        return PRIVATE_GROUP + f'_{event.get_user_id()}'
 
 
 class SessionContainer:
-    def __init__(self, api_keys: List[str], chat_memory_max: int, history_max: int, dir_path: Path):
+    def __init__(self, api_keys: List[str], chat_memory_max: int, history_max: int, dir_path: Path,
+                 default_only_admin: bool):
         self.api_keys: List[str] = api_keys
         self.chat_memory_max: int = chat_memory_max
         self.history_max: int = history_max
         self.dir_path: Path = dir_path
         self.sessions: List[Session] = []
-        self.session_usage: Dict[group_id, Dict[user_id, Session]] = {}
+        self.session_usage: Dict[type_group_id, Dict[type_user_id, Session]] = {}
+        self.default_only_admin: bool = default_only_admin
+        self.group_auth: Dict[str, bool] = {}
         if not dir_path.exists():
             dir_path.mkdir(parents=True)
         self.load()
+        self.load_group_auth()
 
-    async def delete_session(self, session: "Session", groupId: str) -> None:
-        group_usage: Dict[int, Session] = self.get_group_usage(groupId)
+    @property
+    def group_auth_file_path(self) -> Path:
+        return self.dir_path / 'group_auth_file.json'
+
+    def save_group_auth(self):
+        with open(self.group_auth_file_path, 'w', encoding='utf8') as f:
+            json.dump(self.group_auth, f, ensure_ascii=False)
+
+    def load_group_auth(self):
+        if not self.group_auth_file_path.exists():
+            self.save_group_auth()
+            return
+        with open(self.group_auth_file_path, 'r', encoding='utf8') as f:
+            self.group_auth = json.load(f)
+
+    def get_group_auth(self, gid: str) -> bool:
+        return self.group_auth.setdefault(gid, self.default_only_admin)
+
+    def set_group_auth(self, gid: str, auth: bool):
+        self.group_auth[gid] = auth
+        self.save_group_auth()
+
+    async def delete_session(self, session: "Session", gid: str) -> None:
+        group_usage: Dict[int, Session] = self.get_group_usage(gid)
         users = set(uid for uid, s in group_usage.items() if s is session)
         for user in users:
-            group_usage.pop(user)
+            group_usage.pop(user, None)
         self.sessions.remove(session)
         session.delete_file()
-        logger.success(f'成功删除群 {groupId} 会话 {session.name}')
+        logger.success(f'成功删除群 {gid} 会话 {session.name}')
 
     def get_group_sessions(self, group_id: Union[str, int]) -> List["Session"]:
         return [s for s in self.sessions if s.group == str(group_id)]
 
+    @staticmethod
+    def old_version_check(session: "Session"):
+        if session.group == PRIVATE_GROUP:
+            session.file_path.unlink(missing_ok=True)
+            session.group = PRIVATE_GROUP + f'_{session.creator}'
+            session.save()
+
     def load(self) -> None:
-        for file in self.dir_path.glob('*.json'):
+        for file in list(self.dir_path.glob('*.json')):
             session = Session.reload_from_file(file)
             if not session:
                 continue
+            self.old_version_check(session)
             self.sessions.append(session)
             group = self.get_group_usage(session.group)
             for user in session.users:
                 group[user] = session
 
-    def get_group_usage(self, gid: Union[str, int]) -> Dict[user_id, "Session"]:
+    def get_group_usage(self, gid: Union[str, int]) -> Dict[type_user_id, "Session"]:
         return self.session_usage.setdefault(str(gid), {})
 
     def get_user_usage(self, gid: Union[str, int], uid: int) -> "Session":
@@ -120,7 +154,7 @@ class Session:
         self.history: List[Dict[str, str]] = chat_log
         self.creator: int = creator
         self._users: Set[int] = set(users) if users else set()
-        self.group: str = str(group)
+        self.group: str = group
         self.name: str = name
         self.chat_memory_max: int = chat_memory_max
         self.history_max: int = history_max
@@ -184,7 +218,7 @@ class Session:
             logger.error(
                 f'当前不存在api key，请在配置文件里进行配置...')
             return ''
-        if key_load_balancing:
+        if _key_load_balancing:
             random.shuffle(api_keys)
         for num, key in enumerate(api_keys):
             openai.api_key = key
@@ -195,7 +229,7 @@ class Session:
                     messages=self.chat_memory,
                     temperature=temperature,
                     max_tokens=max_tokens,
-                    timeout=timeout,
+                    timeout=_timeout,
                 )
                 self.update_from_completion(completion)
                 if completion.get("choices") is None:
@@ -269,14 +303,15 @@ class Session:
         return json.dumps(self.chat_memory, ensure_ascii=False)
 
 
-chat_memory_max = plugin_config.chat_memory_max if plugin_config.chat_memory_max > 2 else 2
-history_max = plugin_config.history_max if plugin_config.history_max > chat_memory_max else 100
-timeout = int(plugin_config.timeout) if plugin_config.timeout and plugin_config.timeout > 0 else 10
-key_load_balancing: bool = plugin_config.key_load_balancing
+_chat_memory_max = plugin_config.chat_memory_max if plugin_config.chat_memory_max > 2 else 2
+_history_max = plugin_config.history_max if plugin_config.history_max > _chat_memory_max else 100
+_timeout = int(plugin_config.timeout) if plugin_config.timeout and plugin_config.timeout > 0 else 10
+_key_load_balancing: bool = plugin_config.key_load_balancing
 
 session_container: SessionContainer = SessionContainer(
     dir_path=plugin_config.history_save_path,
-    chat_memory_max=chat_memory_max,
+    chat_memory_max=_chat_memory_max,
     api_keys=plugin_config.api_key,
-    history_max=history_max,
+    history_max=_history_max,
+    default_only_admin=plugin_config.default_only_admin,
 )
