@@ -21,33 +21,43 @@ from .loadpresets import presets_str
 from .custom_errors import NeedCreatSession
 from .sessions import session_container, Session, get_group_id
 
+customize_prefix: str = plugin_config.customize_prefix
+customize_talk_cmd: str = plugin_config.customize_talk_cmd
+# 因为电脑端的qq在输入/chat xxx时候经常被转换成表情，所以支持自定义指令前缀替换"chat"
+change_chat_to: str = plugin_config.change_chat_to
+prefix_str = customize_prefix if customize_prefix is not None else '/'
+chat_str = f'(chat|{change_chat_to})' if change_chat_to else 'chat'
+talk_cmd_str = customize_talk_cmd if customize_talk_cmd else 'talk'
+pattern_str = prefix_str + chat_str
+menu_chat_str=prefix_str+f'{change_chat_to}' if change_chat_to else 'chat'
+
 __usage__: str = (
     "指令表：\n"
-    "    /chat help 获取指令帮助菜单\n"
-    "    /chat auth 获取当前群会话管理权限状态\n"
-    "    /chat auth on 设置当前群仅管理员可以管理会话\n"
-    "    /chat auth off 设置当前群所有人均可管理会话\n"
-    "    /talk <会话内容> 在当前会话中进行会话(同样不需要括号，后面直接接你要说的话就行)\n"
+    f"    {menu_chat_str} help 获取指令帮助菜单\n"
+    f"    {menu_chat_str} auth 获取当前群会话管理权限状态\n"
+    f"    {menu_chat_str} auth on 设置当前群仅管理员可以管理会话\n"
+    f"    {menu_chat_str} auth off 设置当前群所有人均可管理会话\n"
+    f"    /talk <会话内容> 在当前会话中进行会话(同样不需要括号，后面直接接你要说的话就行)\n"
     ">> 增\n"
-    "    /chat new  根据预制模板prompt创建并加入一个新的会话\n"
-    "    /chat new <自定义prompt> 根据自定义prompt创建并加入一个新的会话\n"
-    "    /chat json 根据历史会话json来创建一个会话，输入该命令后会提示你在下一个消息中输入json\n"
-    "    /chat cp 根据当前会话创建并加入一个新的会话\n"
-    "    /chat cp <id> 根据会话<id>为模板进行复制新建加入（id为/chat list中的序号）\n"
+    f"    {menu_chat_str} new  根据预制模板prompt创建并加入一个新的会话\n"
+    f"    {menu_chat_str} new <自定义prompt> 根据自定义prompt创建并加入一个新的会话\n"
+    f"    {menu_chat_str} json 根据历史会话json来创建一个会话，输入该命令后会提示你在下一个消息中输入json\n"
+    f"    {menu_chat_str} cp 根据当前会话创建并加入一个新的会话\n"
+    f"    {menu_chat_str} cp <id> 根据会话<id>为模板进行复制新建加入（id为{menu_chat_str} list中的序号）\n"
     ">> 删\n"
-    "    /chat del 删除当前所在会话\n"
-    "    /chat del <id> 删除序号为<id>的会话（id为/chat list中的序号）\n"
-    "    /chat clear 清空本群全部会话\n"
-    "    /chat clear <@user> 删除@用户创建的会话\n"
+    f"    {menu_chat_str} del 删除当前所在会话\n"
+    f"    {menu_chat_str} del <id> 删除序号为<id>的会话（id为{menu_chat_str} list中的序号）\n"
+    f"    {menu_chat_str} clear 清空本群全部会话\n"
+    f"    {menu_chat_str} clear <@user> 删除@用户创建的会话\n"
     ">> 改\n"
-    "    /chat join <id> 加入会话（id为/chat list中的序号）\n"
-    "    /chat rename <name> 重命名当前会话\n"
+    f"    {menu_chat_str} join <id> 加入会话（id为{menu_chat_str} list中的序号）\n"
+    f"    {menu_chat_str} rename <name> 重命名当前会话\n"
     ">> 查\n"
-    "    /chat who 查看当前会话信息\n"
-    "    /chat list 获取当前群所有存在的会话的序号及创建时间\n"
-    "    /chat list <@user> 获取当前群查看@的用户创建的会话\n"
-    "    /chat prompt 查看当前会话的prompt\n"
-    "    /chat dump 导出当前会话json字符串格式的上下文信息，可以用于/chat json导入\n"
+    f"    {menu_chat_str} who 查看当前会话信息\n"
+    f"    {menu_chat_str} list 获取当前群所有存在的会话的序号及创建时间\n"
+    f"    {menu_chat_str} list <@user> 获取当前群查看@的用户创建的会话\n"
+    f"    {menu_chat_str} prompt 查看当前会话的prompt\n"
+    f"    {menu_chat_str} dump 导出当前会话json字符串格式的上下文信息，可以用于{menu_chat_str} json导入\n"
 
 )
 __plugin_meta__ = PluginMetadata(
@@ -68,15 +78,8 @@ temperature: float = plugin_config.temperature
 model: str = plugin_config.model_name
 max_tokens: int = plugin_config.max_tokens
 auto_create_preset_info: bool = plugin_config.auto_create_preset_info
-customize_prefix: str = plugin_config.customize_prefix
-customize_talk_cmd: str = plugin_config.customize_talk_cmd
 
-# 因为电脑端的qq在输入/chat xxx时候经常被转换成表情，所以支持自定义指令前缀替换"chat"
-change_chat_to: str = plugin_config.change_chat_to
-prefix_str = customize_prefix if customize_prefix is not None else '/'
-chat_str = f'(chat|{change_chat_to})' if change_chat_to else 'chat'
-talk_cmd_str = customize_talk_cmd if customize_talk_cmd else 'talk'
-pattern_str = prefix_str + chat_str
+
 
 
 async def _allow_private_checker(event: MessageEvent) -> bool:
@@ -192,7 +195,7 @@ async def _(bot: Bot, event: MessageEvent):
     await auth_check(ChatCP, bot, event, group_id)
     group_usage: Dict[int, Session] = session_container.get_group_usage(group_id)
     if user_id not in group_usage:
-        await ChatCP.finish('请先加入一个会话，再进行复制当前会话 或者使用 /chat cp <id> 进行复制')
+        await ChatCP.finish(f'请先加入一个会话，再进行复制当前会话 或者使用 {menu_chat_str} cp <id> 进行复制')
     session: Session = group_usage[user_id]
     group_usage[user_id].del_user(user_id)
     new_session: Session = session_container.create_with_session(session, user_id, group_id)
@@ -258,7 +261,7 @@ async def _(event: MessageEvent):
           f"名称:{session.name[:10]}\n" \
           f"创建者:{session.creator}\n" \
           f"时间:{datetime.fromtimestamp(session.creation_time)}\n" \
-          f"可以使用 /chat dump 导出json字符串格式的上下文信息"
+          f"可以使用 {menu_chat_str} dump 导出json字符串格式的上下文信息"
     await ChatWho.finish(msg)
 
 
@@ -271,7 +274,7 @@ async def _(bot: Bot, event: MessageEvent, info: Dict[str, Any] = RegexDict()):
     group_sessions: List[Session] = session_container.get_group_sessions(group_id)
     group_usage: Dict[int, Session] = session_container.get_group_usage(group_id)
     if not group_sessions:
-        await ChatCopy.finish("本群尚未创建过会话!请用/chat new命令来创建会话!", at_sender=True)
+        await ChatCopy.finish(f"本群尚未创建过会话!请用{menu_chat_str} new命令来创建会话!", at_sender=True)
     if session_id < 1 or session_id > len(group_sessions):
         await ChatCopy.finish("序号超出!", at_sender=True)
     session: Session = group_sessions[session_id - 1]
@@ -320,7 +323,7 @@ async def _(event: MessageEvent, info: Dict[str, Any] = RegexDict()):
     group_sessions: List[Session] = session_container.get_group_sessions(group_id)
     group_usage: Dict[int, Session] = session_container.get_group_usage(group_id)
     if not group_sessions:
-        await Join.finish("本群尚未创建过会话!请用/chat new命令来创建会话!", at_sender=True)
+        await Join.finish(f"本群尚未创建过会话!请用{menu_chat_str} new命令来创建会话!", at_sender=True)
     if session_id < 1 or session_id > len(group_sessions):
         await Join.finish("序号超出!", at_sender=True)
     user_id: int = int(event.get_user_id())
