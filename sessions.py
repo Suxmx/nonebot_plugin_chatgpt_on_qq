@@ -92,7 +92,12 @@ class SessionContainer:
             session.save()
 
     def load(self) -> None:
-        for file in list(self.dir_path.glob('*.json')):
+        files: List[Path] = list(self.dir_path.glob('*.json'))
+        try:
+            files.remove(self.group_auth_file_path)
+        except ValueError:
+            pass
+        for file in files:
             session = Session.reload_from_file(file)
             if not session:
                 continue
