@@ -16,7 +16,7 @@ from nonebot.params import ArgPlainText, RegexDict, EventMessage
 from nonebot.permission import SUPERUSER, Permission
 from nonebot.plugin import PluginMetadata
 
-from .config import Config, plugin_config
+from .config import Config, plugin_config, APIKeyPool
 from .loadpresets import presets_str
 from .custom_errors import NeedCreatSession
 from .sessions import session_container, Session, get_group_id
@@ -37,7 +37,7 @@ __usage__: str = (
     f"    {menu_chat_str} auth 获取当前群会话管理权限状态\n"
     f"    {menu_chat_str} auth on 设置当前群仅管理员可以管理会话\n"
     f"    {menu_chat_str} auth off 设置当前群所有人均可管理会话\n"
-    f"    /talk <会话内容> 在当前会话中进行会话(同样不需要括号，后面直接接你要说的话就行)\n"
+    f"    {prefix_str}{talk_cmd_str} <会话内容> 在当前会话中进行会话(同样不需要括号，后面直接接你要说的话就行)\n"
     ">> 增\n"
     f"    {menu_chat_str} new  根据预制模板prompt创建并加入一个新的会话\n"
     f"    {menu_chat_str} new <自定义prompt> 根据自定义prompt创建并加入一个新的会话\n"
@@ -68,12 +68,12 @@ __plugin_meta__ = PluginMetadata(
     extra={
         "License": "BSD License",
         "Author": "颜曦",
-        "version": "1.6.0",
+        "version": "1.6.1",
     },
 )
 
 allow_private: bool = plugin_config.allow_private
-api_keys: List[str] = session_container.api_keys
+api_keys: APIKeyPool = session_container.api_keys
 temperature: float = plugin_config.temperature
 model: str = plugin_config.model_name
 max_tokens: int = plugin_config.max_tokens

@@ -85,6 +85,9 @@ api_key = '["sk-xxx...",
 的，所以算是必填项，正向代理使用 `openai_proxy`
 ，例如 `openai_proxy="127.0.0.1:1080"` （前提是你有代理，这只是个例子）
 
+<details>
+  <summary><b style="font-size: 1.2rem">其他配置项详细介绍</b></summary>
+
 `key_load_balancing` 选项可以选择是否开启apikey的负载均衡，可以简单理解为是否每次从所有key中随机选一个进行使用，默认为否（即一直使用同一个
 key 直到失效再切换下一个）<br>
 因为据说同一个 ip 不能同时调用多个apikey，尤其是短时间调用量很大的情况（不过个人没有测试过），所以默认为关闭负载均衡。如果想开启可能代理软件也需要多
@@ -114,28 +117,36 @@ ip 负载均衡或者自己做ip池（大概…<br>
 `auto_create_preset_info` 可以设置是否提示根据模板自动创建会话的信息，这条提示信息具体在用户不在任何会话时直接使用 `talk`
 指令时触发，如果嫌太过频繁可以关闭。但只能关闭掉自动创建提示，主动创建会话仍旧有提醒。
 
-|           配置项           | 必填  | 类型            |        默认值         |                                   说明                                    |
-|:-----------------------:|:---:|---------------|:------------------:|:-----------------------------------------------------------------------:|
-|         api_key         |  是  | str/List[str] |                    |      填入你的api_key,类似"sk-xxx..."，支持多个key，以字符串列表形式填入，某个key失效后会自动切换下一个      |
-|   key_load_balancing    |  否  | bool          |       False        |           是否启用apikey负载均衡，即每次使用不同的key访问，默认为关，即一直使用一个key直到失效再切换           |
-|       model_name        |  否  | str           |  "gpt-3.5-turbo"   |                             模型名称，具体可参考官方文档                              |
-|       temperature       |  否  | float         |        0.5         | 设置使用gpt的理智值(temperature)，介于0~2之间，较高值如`0.8`会使会话更加随机，较低值如`0.2`会使会话更加集中和确定 |
-|      openai_proxy       |  否  | str           |        None        |                          正向HTTP代理 (HTTP PROXY)                          |
-|     chat_memory_max     |  否  | int           |         10         |                          设置会话记忆上下文数量，填入大于2的数字                           |
-|       history_max       |  否  | int           |        100         |                        设置保存的最大历史聊天记录长度，填入大于2的数字                         |
-|    history_save_path    |  否  | str           | "data/ChatHistory" |                               设置会话记录保存路径                                |
-|     openai_api_base     |  否  | str           |        None        |                                  反向代理                                   |
-|         timeout         |  否  | int           |         10         |                                 超时时间（秒）                                 |
-|       preset_path       |  否  | str           |   "data/Presets"   |                              填入自定义预设文件夹路径                               |
-|      allow_private      |  否  | bool          |        true        |                              插件是否支持私聊，默认开启                              |
-|   default_only_admin    |  否  | bool          |       false        |                       群组默认会话管理权限状态，默认为所有人均可创建管理会话                       |
-|     change_chat_to      |  否  | str           |        None        |           因为电脑端的qq在输入/chat xxx时候经常被转换成表情，所以支持自定义指令前缀替换"chat"            |
-|    customize_prefix     |  否  | str           |        "/"         |                   自定义命令前缀，不填默认为"/"，如果不想要前缀可以填入空字符串 ""                   |
-|   customize_talk_cmd    |  否  | str           |       "talk"       |              自定义和GPT会话的命令后缀，为了防止在去除前缀情况下talk因为常见而误触发可以自定义               |
-| auto_create_preset_info |  否  | bool          |        true        |          是否发送自动根据模板创建会话的信息，如果嫌烦可以关掉，不过只能关掉自动创建的提示，主动创建的会一直有提醒           |
-|       max_tokens        |  否  | int           |        1024        |                              一次最大回复token数量                              |
+</details>
+<br>
+<details>
+  <summary><b style="font-size: 1.2rem">配置项表格</b></summary>
 
-格式如下:
+|           配置项           | 必填 | 类型            |        默认值         |                                   说明                                    |
+|:-----------------------:|:--:|---------------|:------------------:|:-----------------------------------------------------------------------:|
+|         api_key         | 是  | str/List[str] |                    |      填入你的api_key,类似"sk-xxx..."，支持多个key，以字符串列表形式填入，某个key失效后会自动切换下一个      |
+|   key_load_balancing    | 否  | bool          |       False        |           是否启用apikey负载均衡，即每次使用不同的key访问，默认为关，即一直使用一个key直到失效再切换           |
+|       model_name        | 否  | str           |  "gpt-3.5-turbo"   |                             模型名称，具体可参考官方文档                              |
+|       temperature       | 否  | float         |        0.5         | 设置使用gpt的理智值(temperature)，介于0~2之间，较高值如`0.8`会使会话更加随机，较低值如`0.2`会使会话更加集中和确定 |
+|      openai_proxy       | 否  | str           |        None        |                          正向HTTP代理 (HTTP PROXY)                          |
+|     chat_memory_max     | 否  | int           |         10         |                          设置会话记忆上下文数量，填入大于2的数字                           |
+|       history_max       | 否  | int           |        100         |                        设置保存的最大历史聊天记录长度，填入大于2的数字                         |
+|    history_save_path    | 否  | str           | "data/ChatHistory" |                               设置会话记录保存路径                                |
+|     openai_api_base     | 否  | str           |        None        |                                  反向代理                                   |
+|         timeout         | 否  | int           |         10         |                                 超时时间（秒）                                 |
+|       preset_path       | 否  | str           |   "data/Presets"   |                              填入自定义预设文件夹路径                               |
+|      allow_private      | 否  | bool          |        true        |                              插件是否支持私聊，默认开启                              |
+|   default_only_admin    | 否  | bool          |       false        |                       群组默认会话管理权限状态，默认为所有人均可创建管理会话                       |
+|     change_chat_to      | 否  | str           |        None        |           因为电脑端的qq在输入/chat xxx时候经常被转换成表情，所以支持自定义指令前缀替换"chat"            |
+|    customize_prefix     | 否  | str           |        "/"         |                   自定义命令前缀，不填默认为"/"，如果不想要前缀可以填入空字符串 ""                   |
+|   customize_talk_cmd    | 否  | str           |       "talk"       |              自定义和GPT会话的命令后缀，为了防止在去除前缀情况下talk因为常见而误触发可以自定义               |
+| auto_create_preset_info | 否  | bool          |        true        |          是否发送自动根据模板创建会话的信息，如果嫌烦可以关掉，不过只能关掉自动创建的提示，主动创建的会一直有提醒           |
+|       max_tokens        | 否  | int           |        1024        |                              一次最大回复token数量                              |
+
+</details>
+<br>
+<details>
+  <summary><b style="font-size: 1.2rem">配置项示例</b></summary>
 
 ```
 api_key=["sk-xxx...", "sk-yyy...", ...] # 最后一个key后面不要加逗号，另外如果要多行则列表前后加单引号，参考上方介绍
@@ -158,7 +169,9 @@ auto_create_preset_info=false # 具体效果见上方介绍，如果不需要修
 max_tokens=1024 # 具体效果见上方介绍，如果不需要修改也可以直接删掉这一行
 ```
 
-## 基础命令
+</details>
+
+## 基础指令
 
 `/chat help` 获取指令帮助菜单<br>
 `/chat auth` 获取当前群会话管理权限状态<br>
@@ -194,6 +207,9 @@ max_tokens=1024 # 具体效果见上方介绍，如果不需要修改也可以�
 `/chat prompt` 查看当前会话的prompt<br>
 `/chat dump` 导出当前会话json字符串格式的上下文信息，可以用于`/chat json`导入<br>
 
+<details>
+  <summary><b style="font-size: 1.2rem">指令表格</b></summary>
+
 |           指令            |       权限        | 需要@ |  范围   |                    说明                     |
 |:-----------------------:|:---------------:|:---:|:-----:|:-----------------------------------------:|
 |      `/chat help`       |       群员        |  否  | 私聊/群聊 |                 获取指令帮助菜单                  |
@@ -218,7 +234,17 @@ max_tokens=1024 # 具体效果见上方介绍，如果不需要修改也可以�
 |     `/chat prompt`      |       群员        |  否  | 私聊/群聊 |               查看当前会话的prompt               |
 |      `/chat dump`       |       群员        |  否  | 私聊/群聊 | 导出当前会话json字符串格式的上下文信息，可以用于`/chat json`导入  |
 
-## 版本历史
+</details>
+
+<br>
+
+<details>
+  <summary><b style="font-size: 1.5rem">版本历史</b></summary>
+
+### 1.6.1
+- 修改指令菜单显示不变BUG
+- 修改会话本地文件会加载权限文件的BUG
+- 新增APIKeyPool，减少使用失效API导致的时间浪费
 
 ### 1.6.0
 
@@ -227,7 +253,12 @@ max_tokens=1024 # 具体效果见上方介绍，如果不需要修改也可以�
 - 新增管理会话权限相关指令：`/chat auth`、`/chat auth on` 、`/chat auth off`
 - 新增管理会话权限相关配置项：`default_only_admin` 群组默认会话管理权限状态，默认为所有人均可创建管理会话
 
-## 使用效果预览(已过时)
+</details>
+
+<br>
+
+<details>
+  <summary><b style="font-size: 1.5rem">使用效果预览(已过时)</b></summary>
 
 ### 利用模板创建新的会话
 
@@ -257,3 +288,4 @@ max_tokens=1024 # 具体效果见上方介绍，如果不需要修改也可以�
 
 ![image](https://user-images.githubusercontent.com/33772816/223603594-126b4b7a-4184-4129-bd72-fce62a90da8e.png)
 
+</details>

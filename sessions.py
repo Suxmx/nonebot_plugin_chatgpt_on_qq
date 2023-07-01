@@ -1,6 +1,5 @@
 import copy
 import json
-import random
 import datetime
 from pathlib import Path
 from typing import List, Dict, Optional, Union, Set
@@ -9,7 +8,7 @@ import openai
 from nonebot.log import logger
 from nonebot.adapters.onebot.v11 import MessageEvent, GroupMessageEvent
 
-from .config import plugin_config
+from .config import plugin_config, APIKeyPool
 from .loadpresets import templateDict
 from .custom_errors import NeedCreatSession, NoResponseError
 
@@ -35,9 +34,9 @@ def get_group_id(event: MessageEvent) -> str:
 
 
 class SessionContainer:
-    def __init__(self, api_keys: List[str], chat_memory_max: int, history_max: int, dir_path: Path,
+    def __init__(self, api_keys: APIKeyPool, chat_memory_max: int, history_max: int, dir_path: Path,
                  default_only_admin: bool):
-        self.api_keys: List[str] = api_keys
+        self.api_keys: APIKeyPool = api_keys
         self.chat_memory_max: int = chat_memory_max
         self.history_max: int = history_max
         self.dir_path: Path = dir_path
@@ -202,7 +201,7 @@ class Session:
 
     async def ask_with_content(
             self,
-            api_keys: List[str],
+            api_keys: APIKeyPool,
             content: str,
             role: str = 'user',
             temperature: float = 0.5,
@@ -214,7 +213,7 @@ class Session:
 
     async def ask(
             self,
-            api_keys: List[str],
+            api_keys: APIKeyPool,
             temperature: float = 0.5,
             model: str = 'gpt-3.5-turbo',
             max_tokens=1024,
@@ -224,8 +223,9 @@ class Session:
                 f'当前不存在api key，请在配置文件里进行配置...')
             return ''
         if _key_load_balancing:
-            random.shuffle(api_keys)
-        for num, key in enumerate(api_keys):
+            api_keys.shuffle()
+        for num in range(len(api_keys)):
+            key: str = api_keys.get_key()
             openai.api_key = key
             logger.debug(f'当前使用 Api Key [{key[:4]}...{key[-4:]}]')
             try:
@@ -236,14 +236,16 @@ class Session:
                     max_tokens=max_tokens,
                     timeout=_timeout,
                 )
-                self.update_from_completion(completion)
                 if completion.get("choices") is None:
                     raise NoResponseError("未返回任何choices")
                 if len(completion["choices"]) == 0:
                     raise NoResponseError("返回的choices长度为0")
                 if completion["choices"][0].get("message") is None:
                     raise NoResponseError("未返回任何文本!")
+                self.update_from_completion(completion)
                 logger.debug(f'使用当前 Api Key: [{key[:4]}...{key[-4:]}] 请求成功')
+                api_keys.success()
+                api_keys.refresh()
                 return completion["choices"][0]["message"]["content"]
             except Exception as e:
                 logger.warning(
@@ -251,6 +253,8 @@ class Session:
                 logger.warning(
                     f'{type(e)}:{e}'
                 )
+                api_keys.fail()
+        api_keys.refresh()
         return ''
 
     def update(self, content: str, role: str = 'user') -> None:
