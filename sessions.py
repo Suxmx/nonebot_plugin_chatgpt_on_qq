@@ -7,8 +7,10 @@ from typing import List, Dict, Optional, Union, Set
 import openai
 from nonebot.log import logger
 from nonebot.adapters.onebot.v11 import MessageEvent, GroupMessageEvent
+from openai.error import InvalidAPIType, AuthenticationError, PermissionError, RateLimitError
 
-from .config import plugin_config, APIKeyPool
+from .config import plugin_config
+from .apikey import APIKeyPool, APIKey
 from .loadpresets import templateDict
 from .custom_errors import NeedCreatSession, NoResponseError
 
@@ -218,16 +220,19 @@ class Session:
             model: str = 'gpt-3.5-turbo',
             max_tokens=1024,
     ) -> str:
-        if not api_keys:
-            logger.error(
-                f'当前不存在api key，请在配置文件里进行配置...')
-            return ''
+        if api_keys.valid_num <= 0:
+            logger.error(f'当前不存在api key，请在配置文件里进行配置...')
+            return '当前不存在可用apikey，请联系管理员检查apikey信息'
         if _key_load_balancing:
             api_keys.shuffle()
-        for num in range(len(api_keys)):
-            key: str = api_keys.get_key()
-            openai.api_key = key
-            logger.debug(f'当前使用 Api Key [{key[:4]}...{key[-4:]}]')
+        for num, api_key in enumerate(api_keys):
+            api_key: APIKey
+            log_info = f'Api Key([{num + 1}/{len(api_keys)}]): {api_key.show()}'
+            if not api_key.status:
+                logger.warning(f'{log_info} 被标记失效，已跳过... \n失效原因:{api_key.fail_res}')
+                continue
+            openai.api_key = api_key.key
+            logger.debug(f'当前使用 {log_info}')
             try:
                 completion: dict = await openai.ChatCompletion.acreate(
                     model=model,
@@ -243,19 +248,26 @@ class Session:
                 if completion["choices"][0].get("message") is None:
                     raise NoResponseError("未返回任何文本!")
                 self.update_from_completion(completion)
-                logger.debug(f'使用当前 Api Key: [{key[:4]}...{key[-4:]}] 请求成功')
-                api_keys.success()
-                api_keys.refresh()
+                logger.debug(f'{log_info} 请求成功')
                 return completion["choices"][0]["message"]["content"]
+            except RateLimitError as e:
+                if 'You exceeded your current quota, please check your plan and billing details.' in e.user_message:
+                    logger.warning(f'{log_info} 额度耗尽，已失效，尝试使用下一个...')
+                    logger.warning(f'{type(e)}: {e}')
+                    api_key.fail(f'{type(e).__name__}: {e}')
+                    api_keys.valid_num -= 1
+                else:
+                    logger.warning(f'{log_info} 请求速率过快，尝试使用下一个...')
+                    logger.warning(f'{e}')
+            except (InvalidAPIType, AuthenticationError, PermissionError) as e:
+                logger.warning(f'{log_info} 格式或权限错误，已失效，尝试使用下一个...')
+                logger.warning(f'{e}')
+                api_key.fail(f'{type(e).__name__}: {e}')
+                api_keys.valid_num -= 1
             except Exception as e:
-                logger.warning(
-                    f'当前 Api Key([{num + 1}/{len(api_keys)}]): [{key[:4]}...{key[-4:]}] 请求错误，尝试使用下一个...')
-                logger.warning(
-                    f'{type(e)}:{e}'
-                )
-                api_keys.fail()
-        api_keys.refresh()
-        return ''
+                logger.warning(f'{log_info} 请求出现其他错误，尝试使用下一个...')
+                logger.warning(f'{type(e)}: {e}')
+        return '请求失败...请联系管理员查看错误日志和apikey信息'
 
     def update(self, content: str, role: str = 'user') -> None:
         self.history.append({'role': role, 'content': content})
