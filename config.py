@@ -4,11 +4,11 @@ from typing import List, Union
 from nonebot import get_driver
 from pydantic import Extra, BaseModel, validator
 
-from .custom_errors import ApiKeyError, NoApiKeyError
+from .apikey import APIKeyPool
 
 
-class Config(BaseModel, extra=Extra.ignore):
-    api_key: Union[str, List[str]] = None
+class Config(BaseModel, extra=Extra.ignore, arbitrary_types_allowed=True):
+    api_key: Union["APIKeyPool", str, List[str]] = None
     key_load_balancing: bool = False
     history_save_path: Path = Path("data/ChatHistory").absolute()
     preset_path: Path = Path("data/Presets").absolute()
@@ -26,16 +26,11 @@ class Config(BaseModel, extra=Extra.ignore):
     customize_talk_cmd: str = 'talk'
     timeout: int = 10
     default_only_admin: bool = False
+    at_sender: bool = True
 
     @validator('api_key')
-    def api_key_validator(cls, v) -> List[str]:
-        if not v:
-            raise NoApiKeyError('请输入APIKEY')
-        if isinstance(v, list):
-            return v
-        if isinstance(v, str):
-            return [v]
-        raise ApiKeyError('请输入正确的APIKEY')
+    def api_key_validator(cls, v) -> APIKeyPool:
+        return APIKeyPool(v)
 
 
 plugin_config: Config = Config.parse_obj(get_driver().config)
