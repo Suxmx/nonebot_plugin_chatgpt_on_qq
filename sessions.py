@@ -7,7 +7,7 @@ from typing import List, Dict, Optional, Union, Set
 import openai
 from nonebot.log import logger
 from nonebot.adapters.onebot.v11 import MessageEvent, GroupMessageEvent
-from openai import APIResponseValidationError, AuthenticationError, RateLimitError
+from openai import OpenAI, APIResponseValidationError, AuthenticationError, RateLimitError
 
 from .config import plugin_config
 from .apikey import APIKeyPool, APIKey
@@ -23,9 +23,6 @@ if proxy:
     #openai.proxy = {'http': f"http://{proxy}", 'https': f'http://{proxy}'}
     logger.critical("由于openai库发生变化, 请使用全局代理")
 
-if plugin_config.openai_api_base:
-    openai.base_url = plugin_config.openai_api_base
-
 
 def get_group_id(event: MessageEvent) -> str:
     if isinstance(event, GroupMessageEvent):  # 当在群聊中时
@@ -35,7 +32,7 @@ def get_group_id(event: MessageEvent) -> str:
 
 
 class SessionContainer:
-    def __init__(self, api_keys: APIKeyPool, chat_memory_max: int, history_max: int, dir_path: Path,
+    def __init__(self, api_keys: APIKeyPool, chat_memory_max: int, base_url:str ,history_max: int, dir_path: Path,
                  default_only_admin: bool):
         self.api_keys: APIKeyPool = api_keys
         self.chat_memory_max: int = chat_memory_max
@@ -230,10 +227,13 @@ class Session:
             if not api_key.status:
                 logger.warning(f'{log_info} 被标记失效，已跳过... \n失效原因:{api_key.fail_res}')
                 continue
-            openai.api_key = api_key.key
+            client = OpenAI(
+                api_key=api_key.key,
+                base_url="https://api.moonshot.cn/v1",
+            )
             logger.debug(f'当前使用 {log_info}')
             try:
-                completion: dict = await openai.chat.completions.create(
+                completion: dict = await client.chat.completions.create(
                     model=model,
                     messages=self.chat_memory,
                     temperature=temperature,
@@ -332,6 +332,7 @@ session_container: SessionContainer = SessionContainer(
     dir_path=plugin_config.history_save_path,
     chat_memory_max=_chat_memory_max,
     api_keys=plugin_config.api_key,
+    base_url=plugin_config.openai_api_base,
     history_max=_history_max,
     default_only_admin=plugin_config.default_only_admin,
 )
