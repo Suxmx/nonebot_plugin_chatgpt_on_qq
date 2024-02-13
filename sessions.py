@@ -7,7 +7,7 @@ from typing import List, Dict, Optional, Union, Set
 import openai
 from nonebot.log import logger
 from nonebot.adapters.onebot.v11 import MessageEvent, GroupMessageEvent
-from openai import OpenAI, APIResponseValidationError, AuthenticationError, RateLimitError
+from openai import AsyncOpenAI, APIResponseValidationError, AuthenticationError, RateLimitError
 
 from .config import plugin_config
 from .apikey import APIKeyPool, APIKey
@@ -227,7 +227,7 @@ class Session:
             if not api_key.status:
                 logger.warning(f'{log_info} 被标记失效，已跳过... \n失效原因:{api_key.fail_res}')
                 continue
-            aclient = OpenAI(
+            aclient = AsyncOpenAI(
                 api_key=api_key.key,
                 base_url="https://api.moonshot.cn/v1",
             )
