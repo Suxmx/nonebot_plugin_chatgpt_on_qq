@@ -7,7 +7,7 @@ from typing import List, Dict, Optional, Union, Set
 import openai
 from nonebot.log import logger
 from nonebot.adapters.onebot.v11 import MessageEvent, GroupMessageEvent
-from openai.error import InvalidAPIType, AuthenticationError, PermissionError, RateLimitError
+from openai import APIResponseValidationError, AuthenticationError, RateLimitError
 
 from .config import plugin_config
 from .apikey import APIKeyPool, APIKey
@@ -20,9 +20,8 @@ PRIVATE_GROUP: str = "Private"
 
 proxy: Optional[str] = plugin_config.openai_proxy
 if proxy:
-    openai.proxy = {'http': f"http://{proxy}", 'https': f'http://{proxy}'}
-else:
-    logger.warning("没有设置正向代理")
+    #openai.proxy = {'http': f"http://{proxy}", 'https': f'http://{proxy}'}
+    logger.critical("由于openai库发生变化, 请使用全局代理")
 
 if plugin_config.openai_api_base:
     openai.api_base = plugin_config.openai_api_base
@@ -234,7 +233,7 @@ class Session:
             openai.api_key = api_key.key
             logger.debug(f'当前使用 {log_info}')
             try:
-                completion: dict = await openai.ChatCompletion.acreate(
+                completion: dict = await openai.chat.completions.create(
                     model=model,
                     messages=self.chat_memory,
                     temperature=temperature,
@@ -259,7 +258,7 @@ class Session:
                 else:
                     logger.warning(f'{log_info} 请求速率过快，尝试使用下一个...')
                     logger.warning(f'{e}')
-            except (InvalidAPIType, AuthenticationError, PermissionError) as e:
+            except (APIResponseValidationError, AuthenticationError, PermissionError) as e:
                 logger.warning(f'{log_info} 格式或权限错误，已失效，尝试使用下一个...')
                 logger.warning(f'{e}')
                 api_key.fail(f'{type(e).__name__}: {e}')
