@@ -227,13 +227,13 @@ class Session:
             if not api_key.status:
                 logger.warning(f'{log_info} 被标记失效，已跳过... \n失效原因:{api_key.fail_res}')
                 continue
-            client = OpenAI(
+            aclient = OpenAI(
                 api_key=api_key.key,
                 base_url="https://api.moonshot.cn/v1",
             )
             logger.debug(f'当前使用 {log_info}')
-            try:
-                completion: dict = await client.chat.completions.create(
+            try: 
+                completion: dict = await aclient.chat.completions.create(
                     model=model,
                     messages=self.chat_memory,
                     temperature=temperature,
