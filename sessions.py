@@ -35,6 +35,7 @@ class SessionContainer:
     def __init__(self, api_keys: APIKeyPool, chat_memory_max: int, base_url:str ,history_max: int, dir_path: Path,
                  default_only_admin: bool):
         self.api_keys: APIKeyPool = api_keys
+        self.base_url: str = base_url
         self.chat_memory_max: int = chat_memory_max
         self.history_max: int = history_max
         self.dir_path: Path = dir_path
@@ -200,6 +201,7 @@ class Session:
     async def ask_with_content(
             self,
             api_keys: APIKeyPool,
+            base_url: str,
             content: str,
             role: str = 'user',
             temperature: float = 0.5,
@@ -207,11 +209,12 @@ class Session:
             max_tokens=1024,
     ) -> str:
         self.update(content, role)
-        return await self.ask(api_keys, temperature, model, max_tokens)
+        return await self.ask(api_keys, base_url, temperature, model, max_tokens)
 
     async def ask(
             self,
             api_keys: APIKeyPool,
+            base_url: str,
             temperature: float = 0.5,
             model: str = 'gpt-3.5-turbo',
             max_tokens=1024,
@@ -229,7 +232,7 @@ class Session:
                 continue
             aclient = AsyncOpenAI(
                 api_key=api_key.key,
-                base_url="https://api.moonshot.cn/v1",
+                base_url=base_url
             )
             logger.debug(f'当前使用 {log_info}')
             try: 
@@ -240,15 +243,17 @@ class Session:
                     max_tokens=max_tokens,
                     timeout=_timeout,
                 )
-                if completion.get("choices") is None:
+                # 不知道新版本这个改成什么了
+                if completion.choices is None:
                     raise NoResponseError("未返回任何choices")
-                if len(completion["choices"]) == 0:
+                if len(completion.choices) == 0:
                     raise NoResponseError("返回的choices长度为0")
-                if completion["choices"][0].get("message") is None:
+                if completion.choices[0].message is None:
                     raise NoResponseError("未返回任何文本!")
+                
                 self.update_from_completion(completion)
                 logger.debug(f'{log_info} 请求成功')
-                return completion["choices"][0]["message"]["content"]
+                return completion.choices[0].message.content
             except RateLimitError as e:
                 if 'You exceeded your current quota, please check your plan and billing details.' in e.user_message:
                     logger.warning(f'{log_info} 额度耗尽，已失效，尝试使用下一个...')
@@ -275,8 +280,8 @@ class Session:
         self.save()
 
     def update_from_completion(self, completion: dict) -> None:
-        role = completion["choices"][0]["message"]["role"]
-        content = completion["choices"][0]["message"]["content"]
+        role = completion.choices[0].message.role
+        content = completion.choices[0].message.content
         self.update(content, role)
 
     @classmethod
