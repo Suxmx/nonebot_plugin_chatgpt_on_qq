@@ -24,7 +24,7 @@ if proxy:
     logger.critical("由于openai库发生变化, 请使用全局代理")
 
 if plugin_config.openai_api_base:
-    openai.api_base = plugin_config.openai_api_base
+    openai.base_url = plugin_config.openai_api_base
 
 
 def get_group_id(event: MessageEvent) -> str:
