@@ -23,7 +23,7 @@ if proxy:
     proxy_client = httpx.AsyncClient(proxies=proxy)
     logger.info("已配置代理")
 else:
-    proxy_client = None
+    proxy_client = httpx.AsyncClient()
     logger.warning("未配置代理")
 
 def get_group_id(event: MessageEvent) -> str:
