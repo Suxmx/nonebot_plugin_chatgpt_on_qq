@@ -75,6 +75,7 @@ __plugin_meta__ = PluginMetadata(
 
 allow_private: bool = plugin_config.allow_private
 api_keys: APIKeyPool = session_container.api_keys
+base_url: str = session_container.base_url
 temperature: float = plugin_config.temperature
 model: str = plugin_config.model_name
 max_tokens: int = plugin_config.max_tokens
@@ -319,7 +320,7 @@ async def _(event: MessageEvent, info: Dict[str, Any] = RegexDict()):
             await Chat.send(f"自动创建并加入会话 '{session.name}' 成功", at_sender=True)
     else:
         session: Session = group_usage[user_id]
-    answer: str = await session.ask_with_content(api_keys, content, 'user', temperature, model, max_tokens)
+    answer: str = await session.ask_with_content(api_keys, base_url ,content, 'user', temperature, model, max_tokens)
     await Chat.finish(answer, at_sender=at_sender)
 
 

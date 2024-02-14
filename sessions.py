@@ -4,10 +4,10 @@ import datetime
 from pathlib import Path
 from typing import List, Dict, Optional, Union, Set
 
-import openai
+import httpx
 from nonebot.log import logger
 from nonebot.adapters.onebot.v11 import MessageEvent, GroupMessageEvent
-from openai.error import InvalidAPIType, AuthenticationError, PermissionError, RateLimitError
+from openai import AsyncOpenAI, APIResponseValidationError, AuthenticationError, RateLimitError
 
 from .config import plugin_config
 from .apikey import APIKeyPool, APIKey
@@ -20,13 +20,11 @@ PRIVATE_GROUP: str = "Private"
 
 proxy: Optional[str] = plugin_config.openai_proxy
 if proxy:
-    openai.proxy = {'http': f"http://{proxy}", 'https': f'http://{proxy}'}
+    proxy_client = httpx.AsyncClient(proxies=proxy)
+    logger.info("已配置代理")
 else:
-    logger.warning("没有设置正向代理")
-
-if plugin_config.openai_api_base:
-    openai.api_base = plugin_config.openai_api_base
-
+    proxy_client = httpx.AsyncClient()
+    logger.warning("未配置代理")
 
 def get_group_id(event: MessageEvent) -> str:
     if isinstance(event, GroupMessageEvent):  # 当在群聊中时
@@ -36,9 +34,10 @@ def get_group_id(event: MessageEvent) -> str:
 
 
 class SessionContainer:
-    def __init__(self, api_keys: APIKeyPool, chat_memory_max: int, history_max: int, dir_path: Path,
+    def __init__(self, api_keys: APIKeyPool, chat_memory_max: int, base_url:str ,history_max: int, dir_path: Path,
                  default_only_admin: bool):
         self.api_keys: APIKeyPool = api_keys
+        self.base_url: str = base_url
         self.chat_memory_max: int = chat_memory_max
         self.history_max: int = history_max
         self.dir_path: Path = dir_path
@@ -204,6 +203,7 @@ class Session:
     async def ask_with_content(
             self,
             api_keys: APIKeyPool,
+            base_url: str,
             content: str,
             role: str = 'user',
             temperature: float = 0.5,
@@ -211,11 +211,12 @@ class Session:
             max_tokens=1024,
     ) -> str:
         self.update(content, role)
-        return await self.ask(api_keys, temperature, model, max_tokens)
+        return await self.ask(api_keys, base_url, temperature, model, max_tokens)
 
     async def ask(
             self,
             api_keys: APIKeyPool,
+            base_url: str,
             temperature: float = 0.5,
             model: str = 'gpt-3.5-turbo',
             max_tokens=1024,
@@ -231,25 +232,31 @@ class Session:
             if not api_key.status:
                 logger.warning(f'{log_info} 被标记失效，已跳过... \n失效原因:{api_key.fail_res}')
                 continue
-            openai.api_key = api_key.key
+            aclient = AsyncOpenAI(
+                api_key=api_key.key,
+                base_url=base_url,
+                http_client=proxy_client
+                )
             logger.debug(f'当前使用 {log_info}')
-            try:
-                completion: dict = await openai.ChatCompletion.acreate(
+            try: 
+                completion: dict = await aclient.chat.completions.create(
                     model=model,
                     messages=self.chat_memory,
                     temperature=temperature,
                     max_tokens=max_tokens,
                     timeout=_timeout,
                 )
-                if completion.get("choices") is None:
+                # 不知道新版本这个改成什么了
+                if completion.choices is None:
                     raise NoResponseError("未返回任何choices")
-                if len(completion["choices"]) == 0:
+                if len(completion.choices) == 0:
                     raise NoResponseError("返回的choices长度为0")
-                if completion["choices"][0].get("message") is None:
+                if completion.choices[0].message is None:
                     raise NoResponseError("未返回任何文本!")
+                
                 self.update_from_completion(completion)
                 logger.debug(f'{log_info} 请求成功')
-                return completion["choices"][0]["message"]["content"]
+                return completion.choices[0].message.content
             except RateLimitError as e:
                 if 'You exceeded your current quota, please check your plan and billing details.' in e.user_message:
                     logger.warning(f'{log_info} 额度耗尽，已失效，尝试使用下一个...')
@@ -259,7 +266,7 @@ class Session:
                 else:
                     logger.warning(f'{log_info} 请求速率过快，尝试使用下一个...')
                     logger.warning(f'{e}')
-            except (InvalidAPIType, AuthenticationError, PermissionError) as e:
+            except (APIResponseValidationError, AuthenticationError, PermissionError) as e:
                 logger.warning(f'{log_info} 格式或权限错误，已失效，尝试使用下一个...')
                 logger.warning(f'{e}')
                 api_key.fail(f'{type(e).__name__}: {e}')
@@ -276,8 +283,8 @@ class Session:
         self.save()
 
     def update_from_completion(self, completion: dict) -> None:
-        role = completion["choices"][0]["message"]["role"]
-        content = completion["choices"][0]["message"]["content"]
+        role = completion.choices[0].message.role
+        content = completion.choices[0].message.content
         self.update(content, role)
 
     @classmethod
@@ -333,6 +340,7 @@ session_container: SessionContainer = SessionContainer(
     dir_path=plugin_config.history_save_path,
     chat_memory_max=_chat_memory_max,
     api_keys=plugin_config.api_key,
+    base_url=plugin_config.openai_api_base,
     history_max=_history_max,
     default_only_admin=plugin_config.default_only_admin,
 )

@@ -13,7 +13,7 @@ class Config(BaseModel, extra=Extra.ignore, arbitrary_types_allowed=True):
     history_save_path: Path = Path("data/ChatHistory").absolute()
     preset_path: Path = Path("data/Presets").absolute()
     openai_proxy: str = None
-    openai_api_base: str = None
+    openai_api_base: str = "https://api.openai.com/v1"
     chat_memory_max: int = 10
     history_max: int = 100
     temperature: float = 0.5
