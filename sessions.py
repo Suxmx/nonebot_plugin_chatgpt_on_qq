@@ -4,7 +4,7 @@ import datetime
 from pathlib import Path
 from typing import List, Dict, Optional, Union, Set
 
-import openai
+import httpx
 from nonebot.log import logger
 from nonebot.adapters.onebot.v11 import MessageEvent, GroupMessageEvent
 from openai import AsyncOpenAI, APIResponseValidationError, AuthenticationError, RateLimitError
@@ -20,9 +20,10 @@ PRIVATE_GROUP: str = "Private"
 
 proxy: Optional[str] = plugin_config.openai_proxy
 if proxy:
-    #openai.proxy = {'http': f"http://{proxy}", 'https': f'http://{proxy}'}
-    logger.critical("由于openai库发生变化, 请使用全局代理")
-
+    proxy_client = httpx.AsyncClient(proxies=proxy)
+    logger.info("已配置代理")
+else:
+    logger.warning("未配置代理")
 
 def get_group_id(event: MessageEvent) -> str:
     if isinstance(event, GroupMessageEvent):  # 当在群聊中时
@@ -232,8 +233,9 @@ class Session:
                 continue
             aclient = AsyncOpenAI(
                 api_key=api_key.key,
-                base_url=base_url
-            )
+                base_url=base_url,
+                http_client=proxy_client
+                )
             logger.debug(f'当前使用 {log_info}')
             try: 
                 completion: dict = await aclient.chat.completions.create(
