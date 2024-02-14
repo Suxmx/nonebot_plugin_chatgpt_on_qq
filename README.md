@@ -135,7 +135,7 @@ ip 负载均衡或者自己做ip池（大概…<br>
 |     chat_memory_max     | 否  | int           |         10         |                          设置会话记忆上下文数量，填入大于2的数字                           |
 |       history_max       | 否  | int           |        100         |                        设置保存的最大历史聊天记录长度，填入大于2的数字                         |
 |    history_save_path    | 否  | str           | "data/ChatHistory" |                               设置会话记录保存路径                                |
-|     openai_api_base     | 否  | str           |        None        |                                  反向代理                                   |
+|     openai_api_base     | 否  | str           |https://api.openai.com/v1|                          其他api地址/反向代理                                   |
 |   key_load_balancing    | 否  | bool          |       false        |           是否启用apikey负载均衡，即每次使用不同的key访问，默认为关，即一直使用一个key直到失效再切换           |
 |       temperature       | 否  | float         |        0.5         | 设置使用gpt的理智值(temperature)，介于0~2之间，较高值如`0.8`会使会话更加随机，较低值如`0.2`会使会话更加集中和确定 |
 |       preset_path       | 否  | str           |   "data/Presets"   |                              填入自定义预设文件夹路径                               |
@@ -161,7 +161,7 @@ openai_proxy="x.x.x.x:xxxxx"
 chat_memory_max=10 # 填入大于2的数字
 history_max=100 # 填入大于2的数字
 history_save_path="E:/Kawaii" # 填入你的历史会话保存文件夹路径，如果修改最好填绝对路径，不过一般不需要修改，可以直接删掉这一行
-openai_api_base = "" # cf workers，空字符串或留空都将不使用
+openai_api_base = "https://api.moonshot.cn/v1" # 其他api地址(需支持openai库) 如kimi / cloudflare workers，空字符串或留空都将不使用
 timeout=10
 preset_path="E:/Kitty" # 填入你的历史会话保存文件夹路径，如果修改最好填绝对路径，不过一般不需要修改，可以直接删掉这一行
 allow_private=true # 是否允许私聊触发插件
