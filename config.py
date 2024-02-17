@@ -5,6 +5,7 @@ from nonebot import get_driver
 from pydantic import Extra, BaseModel, validator
 
 from .apikey import APIKeyPool
+from nonebot import get_plugin_config
 
 
 class Config(BaseModel, extra=Extra.ignore, arbitrary_types_allowed=True):
@@ -33,4 +34,4 @@ class Config(BaseModel, extra=Extra.ignore, arbitrary_types_allowed=True):
         return APIKeyPool(v)
 
 
-plugin_config: Config = Config.parse_obj(get_driver().config)
+plugin_config = get_plugin_config(Config)
