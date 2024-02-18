@@ -198,7 +198,11 @@ class Session:
 
     @property
     def chat_memory(self) -> List[Dict[str, str]]:
-        return self.history[:self.basic_len] + self.history[self.basic_len - self.chat_memory_max:]
+        if self.chat_memory_max >= len(self.history):
+            return self.history
+        else:
+            return self.history[:self.basic_len] + self.history[self.basic_len - self.chat_memory_max:]
+
 
     async def ask_with_content(
             self,
